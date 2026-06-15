@@ -20,7 +20,7 @@ jobs:
       - run: npx astro build
 
       - name: Deploy to Cloudflare Pages
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CF_API_TOKEN }}
-          command: pages deploy dist --project-name=kumamoto-travel
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: a1ff5a85af343573e9c83d1e45d449f8
+        run: npx wrangler pages deploy dist --project-name=kumamoto-travel --branch=main
