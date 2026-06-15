@@ -213,8 +213,15 @@ const tripJson = JSON.stringify(trip);
 
   document.getElementById('gcal-btn').addEventListener('click', () => {
     const trip = window.__TRIP__;
-    const base = trip.startDate.replace(/-/g, '');
-    const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(trip.title)}&dates=${base}/${base}&details=${encodeURIComponent('行程詳情請見網站')}`;
-    window.open(url, '_blank');
+    const start = new Date(trip.startDate + 'T00:00:00');
+    const end = new Date(start);
+    end.setDate(end.getDate() + trip.days.length);
+    const fmt = d => d.toISOString().slice(0, 10).replace(/-/g, '');
+    const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(trip.title)}&dates=${fmt(start)}/${fmt(end)}&details=${encodeURIComponent('行程詳情請見網站')}`;
+    const a = document.createElement('a');
+    a.href = url;
+    a.target = '_blank';
+    a.rel = 'noopener';
+    a.click();
   });
 </script>
