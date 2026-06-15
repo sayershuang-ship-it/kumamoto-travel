@@ -1,0 +1,220 @@
+---
+import Base from '../layouts/Base.astro';
+import { trip } from '../data/itinerary';
+const tripJson = JSON.stringify(trip);
+---
+
+<Base title="匯出日曆 | 熊本旅行">
+  <header class="hero" style="padding:2rem 1rem;">
+    <a href="/" style="color:white;opacity:0.7;text-decoration:none;font-size:0.85rem;">← 回總覽</a>
+    <h1 style="margin-top:0.5rem;">📅 匯出日曆</h1>
+    <p class="subtitle">將行程匯入 Google Calendar / Apple Calendar</p>
+  </header>
+
+  <nav class="nav">
+    <a href="/">📋 總覽</a>
+    <a href="/day1">Day 1</a>
+    <a href="/day2">Day 2</a>
+    <a href="/day3">Day 3</a>
+    <a href="/day4">Day 4</a>
+    <a href="/map">🗺️ 地圖</a>
+    <a href="/weather">🌤️ 天氣</a>
+    <a href="/tickets">🎫 預訂</a>
+    <a href="/calendar" class="active">📅 日曆</a>
+  </nav>
+
+  <main class="container" style="padding-top:1.5rem;">
+
+    <div class="card">
+      <h2 style="margin-bottom:1rem;">📋 行程總覽</h2>
+      <div class="cal-table-wrap">
+        <table class="cal-table">
+          <thead>
+            <tr>
+              <th>日期</th>
+              <th>時間</th>
+              <th>活動</th>
+            </tr>
+          </thead>
+          <tbody>
+            {trip.days.map(day =>
+              day.activities.map((act, i) => (
+                <tr>
+                  {i === 0 ? <td rowspan={day.activities.length} class="day-cell">Day {day.day}<br/><span class="day-date">{day.date}</span></td> : ''}
+                  <td class="time-cell">{act.time}</td>
+                  <td>{act.icon} {act.title}<br/><span class="act-desc">{act.desc}</span></td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card" style="display:flex;gap:0.75rem;flex-wrap:wrap;align-items:center;">
+      <button id="dl-ics" class="btn-primary">📥 下載 .ics 檔案</button>
+      <button id="gcal-btn" class="btn-secondary">📅 加到 Google Calendar</button>
+    </div>
+
+  </main>
+
+  <footer class="footer">
+    <a href="/" style="color:var(--brand);">← 回總覽</a>
+  </footer>
+</Base>
+
+<style>
+  .cal-table-wrap { overflow-x: auto; }
+  .cal-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+  }
+  .cal-table th {
+    text-align: left;
+    padding: 0.6rem 0.75rem;
+    background: var(--bg);
+    border-bottom: 2px solid var(--border);
+    font-weight: 600;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+  .cal-table td {
+    padding: 0.6rem 0.75rem;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  .cal-table tr:last-child td { border-bottom: none; }
+  .day-cell {
+    font-weight: 700;
+    white-space: nowrap;
+    background: var(--bg);
+    text-align: center;
+  }
+  .day-date {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    font-weight: 400;
+  }
+  .time-cell {
+    white-space: nowrap;
+    font-weight: 600;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+  }
+  .act-desc {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+  }
+
+  .btn-primary {
+    background: var(--brand);
+    color: white;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    border-radius: 999px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .btn-primary:hover { background: var(--brand-dark); }
+
+  .btn-secondary {
+    background: white;
+    color: var(--brand);
+    border: 2px solid var(--brand);
+    padding: 0.75rem 1.5rem;
+    border-radius: 999px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .btn-secondary:hover { background: #fef2f2; }
+</style>
+
+<script define:vars={{ tripJson }}>
+  window.__TRIP__ = JSON.parse(tripJson);
+
+  function buildICS(trip) {
+    const lines = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//TravelPlanner//kumamoto-travel//ZH',
+      'CALSCALE:GREGORIAN',
+      'METHOD:PUBLISH',
+      `X-WR-CALNAME:${trip.title}`,
+      `X-WR-TIMEZONE:${trip.timezone}`,
+    ];
+
+    const baseDate = new Date(trip.startDate);
+
+    trip.days.forEach((day, dayIndex) => {
+      const date = new Date(baseDate);
+      date.setDate(date.getDate() + dayIndex);
+      const ymd = date.toISOString().slice(0, 10).replace(/-/g, '');
+
+      day.activities.forEach((act, i) => {
+        const startHM = parseTime(act.time);
+        if (!startHM) return;
+
+        const nextAct = day.activities[i + 1];
+        const endHM = nextAct ? parseTime(nextAct.time) : null;
+        const endTime = endHM || addMinutes(startHM, 60);
+
+        lines.push('BEGIN:VEVENT');
+        lines.push(`DTSTART;TZID=${trip.timezone}:${ymd}T${fmt(startHM)}00`);
+        lines.push(`DTEND;TZID=${trip.timezone}:${ymd}T${fmt(endTime)}00`);
+        lines.push(`SUMMARY:${icsEscape(act.icon + ' ' + act.title)}`);
+        lines.push(`DESCRIPTION:${icsEscape(act.desc + (act.budget ? ' (¥' + act.budget.toLocaleString() + ')' : ''))}`);
+        lines.push(`UID:${ymd}-${i}@kumamoto-travel`);
+        lines.push('END:VEVENT');
+      });
+    });
+
+    lines.push('END:VCALENDAR');
+    return lines.join('\r\n');
+  }
+
+  function parseTime(t) {
+    if (/^\d{1,2}:\d{2}$/.test(t)) {
+      const [h, m] = t.split(':').map(Number);
+      return { h, m };
+    }
+    if (t.includes('午前') || t.includes('上午')) return { h: 9, m: 0 };
+    if (t.includes('午後') || t.includes('下午')) return { h: 13, m: 0 };
+    return null;
+  }
+
+  function addMinutes(hm, mins) {
+    let total = hm.h * 60 + hm.m + mins;
+    return { h: Math.floor(total / 60) % 24, m: total % 60 };
+  }
+
+  function fmt(hm) {
+    return String(hm.h).padStart(2, '0') + String(hm.m).padStart(2, '0');
+  }
+
+  function icsEscape(s) {
+    return s.replace(/[\\;,\n]/g, c => '\\' + c);
+  }
+
+  document.getElementById('dl-ics').addEventListener('click', () => {
+    const ics = buildICS(window.__TRIP__);
+    const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'kumamoto-travel.ics';
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  document.getElementById('gcal-btn').addEventListener('click', () => {
+    const trip = window.__TRIP__;
+    const base = trip.startDate.replace(/-/g, '');
+    const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(trip.title)}&dates=${base}/${base}&details=${encodeURIComponent('行程詳情請見網站')}`;
+    window.open(url, '_blank');
+  });
+</script>

@@ -5,6 +5,8 @@ export const trip = {
   travelers: 2,
   budget: 60000,
   budgetCurrency: 'JPY',
+  startDate: '2026-07-17',  // ISO date of Day 1
+  timezone: 'Asia/Tokyo',
 
   weather: {
     temp: '31°C / 24°C',
