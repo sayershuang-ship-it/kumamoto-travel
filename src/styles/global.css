@@ -240,6 +240,31 @@ body {
   margin-top: 0.5rem;
 }
 
+/* Expense tracker */
+.expense-input {
+  width: 5rem;
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  font-size: 0.85rem;
+  text-align: right;
+}
+.expense-input:focus {
+  outline: 2px solid var(--brand);
+  border-color: var(--brand);
+}
+.expense-bar {
+  display: flex;
+  height: 0.5rem;
+  border-radius: 999px;
+  overflow: hidden;
+  margin: 0.5rem 0;
+}
+.expense-bar .planned { background: var(--border); }
+.expense-bar .actual { background: var(--brand); transition: width 0.3s; }
+.expense-over { color: #ef4444; }
+.expense-under { color: var(--accent-green); }
+
 @media (max-width: 640px) {
   .hero h1 { font-size: 1.5rem; }
   .nav { gap: 0; }

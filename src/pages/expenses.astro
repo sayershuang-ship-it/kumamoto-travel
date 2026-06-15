@@ -1,0 +1,383 @@
+---
+import Base from '../layouts/Base.astro';
+import { trip } from '../data/itinerary';
+const tripJson = JSON.stringify(trip);
+
+const categoryNames = {
+  food: '餐飲',
+  transport: '交通',
+  ticket: '門票',
+  hotel: '住宿',
+  onsen: '溫泉',
+  shopping: '購物',
+  free: '免費',
+};
+
+const cats = {};
+trip.days.forEach(d => {
+  d.activities.forEach(a => {
+    if (!cats[a.type]) cats[a.type] = { planned: 0, actual: 0 };
+    cats[a.type].planned += a.budget;
+  });
+});
+
+const categoryEntries = Object.entries(cats).map(([key, val]) => ({
+  key,
+  label: categoryNames[key] || key,
+  planned: val.planned,
+}));
+const maxCatPlanned = Math.max(1, ...categoryEntries.map(c => c.planned));
+
+const totalBudget = trip.days.reduce((s, d) => s + d.dayBudget, 0);
+---
+
+<Base title="花費追蹤 | 熊本旅行">
+  <header class="hero" style="padding:2rem 1rem;">
+    <a href="/" style="color:white;opacity:0.7;text-decoration:none;font-size:0.85rem;">← 回總覽</a>
+    <h1 style="margin-top:0.5rem;">💰 花費追蹤</h1>
+    <p class="subtitle">記錄實際支出，掌控旅行預算</p>
+  </header>
+
+  <nav class="nav">
+    <a href="/">📋 總覽</a>
+    <a href="/day1">Day 1</a>
+    <a href="/day2">Day 2</a>
+    <a href="/day3">Day 3</a>
+    <a href="/day4">Day 4</a>
+    <a href="/map">🗺️ 地圖</a>
+    <a href="/weather">🌤️ 天氣</a>
+    <a href="/tickets">🎫 預訂</a>
+    <a href="/expenses" class="active">💰 花費</a>
+    <a href="/calendar">📅 日曆</a>
+  </nav>
+
+  <main class="container" style="padding-top:1.5rem;">
+
+    <div id="pwa-install" class="pwa-banner">
+      <p>📲 安裝此行程到手機桌面，離線也能查看</p>
+      <button id="install-btn">安裝 App</button>
+    </div>
+
+    <!-- Summary cards -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:1.5rem;">
+      <div class="card" style="text-align:center;">
+        <div style="font-size:0.8rem;color:var(--text-muted);">預算總計</div>
+        <div style="font-size:1.5rem;font-weight:700;color:var(--text);" id="summary-budget">¥{totalBudget.toLocaleString()}</div>
+      </div>
+      <div class="card" style="text-align:center;">
+        <div style="font-size:0.8rem;color:var(--text-muted);">實際花費</div>
+        <div style="font-size:1.5rem;font-weight:700;color:var(--brand);" id="summary-actual">¥0</div>
+      </div>
+      <div class="card" style="text-align:center;">
+        <div style="font-size:0.8rem;color:var(--text-muted);">差額</div>
+        <div style="font-size:1.5rem;font-weight:700;" id="summary-diff">¥{totalBudget.toLocaleString()}</div>
+      </div>
+    </div>
+
+    <!-- Category breakdown -->
+    <div class="card" id="category-card">
+      <h2 style="margin-bottom:1rem;">📊 分類花費</h2>
+      {categoryEntries.map(cat => (
+        <div style="margin-bottom:0.75rem;">
+          <div style="display:flex;justify-content:space-between;font-size:0.85rem;margin-bottom:0.25rem;">
+            <span>{cat.label}</span>
+            <span>
+              <span style="color:var(--text-muted);">¥{cat.planned.toLocaleString()}</span>
+              <span style="margin-left:0.5rem;font-weight:600;" data-cat-actual={cat.key}>¥0</span>
+            </span>
+          </div>
+          <div class="expense-bar">
+            <div class="planned" style="width:{Math.round(cat.planned / maxCatPlanned * 100)}%;"></div>
+            <div class="actual" style="width:0%;" data-cat-bar={cat.key}></div>
+          </div>
+        </div>
+      ))}
+    </div>
+
+    <!-- Per-day sections -->
+    {trip.days.map(d => (
+      <div class="card" style="margin-bottom:1.5rem;">
+        <div class="day-header">
+          <div class="day-num">{d.day}</div>
+          <div>
+            <div class="date">{d.date}</div>
+            <div class="day-title">{d.title}</div>
+            <div class="day-subtitle">預算 ¥{d.dayBudget.toLocaleString()} / <span data-day-total={d.day}>實際 ¥0</span></div>
+          </div>
+        </div>
+
+        <div class="expense-list">
+          {d.activities.map((a, i) => (
+            <div class="expense-row">
+              <span class="expense-icon">{a.icon}</span>
+              <div class="expense-info">
+                <div class="expense-title">{a.title}</div>
+                <div class="expense-meta">
+                  <span class="tag tag-{a.type}">{categoryNames[a.type] || a.type}</span>
+                  <span>{a.time}</span>
+                </div>
+              </div>
+              <div class="expense-amounts">
+                <span class="expense-planned">¥{a.budget.toLocaleString()}</span>
+                <input
+                  type="number"
+                  class="expense-input"
+                  data-day={d.day}
+                  data-idx={i}
+                  value={a.budget}
+                  min="0"
+                  step="100"
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <!-- Day subtotal bar -->
+        <div style="margin-top:1rem;">
+          <div style="display:flex;justify-content:space-between;font-size:0.8rem;color:var(--text-muted);margin-bottom:0.25rem;">
+            <span>日預算 ¥{d.dayBudget.toLocaleString()}</span>
+            <span data-day-actual={d.day}>實際 ¥0</span>
+          </div>
+          <div class="expense-bar">
+            <div class="planned" style="width:100%;"></div>
+            <div class="actual" style="width:0%;" data-day-bar={d.day}></div>
+          </div>
+        </div>
+      </div>
+    ))}
+
+    <!-- Footer buttons -->
+    <div style="display:flex;gap:0.75rem;justify-content:center;margin-bottom:2rem;">
+      <button id="export-btn" style="padding:0.6rem 1.5rem;background:var(--brand);color:white;border:none;border-radius:999px;font-size:0.9rem;font-weight:600;cursor:pointer;">📥 匯出 CSV</button>
+      <button id="reset-btn" style="padding:0.6rem 1.5rem;background:none;border:1px solid var(--border);border-radius:999px;font-size:0.9rem;color:var(--text-muted);cursor:pointer;">🔄 重置</button>
+    </div>
+
+  </main>
+
+  <footer class="footer">
+    <a href="/" style="color:var(--brand);">← 回總覽</a>
+  </footer>
+</Base>
+
+<script define:vars={{ tripJson }}>
+  const trip = JSON.parse(tripJson);
+  const STORAGE_KEY = 'kumamoto-expenses';
+
+  function loadState() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); }
+    catch { return {}; }
+  }
+
+  function saveState(state) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }
+
+  function recalc() {
+    let totalActual = 0;
+
+    // Category actuals
+    const catActuals = {};
+    trip.days.forEach(d => {
+      d.activities.forEach(a => {
+        if (!catActuals[a.type]) catActuals[a.type] = 0;
+      });
+    });
+
+    // Day totals
+    trip.days.forEach(d => {
+      let dayActual = 0;
+      d.activities.forEach((a, i) => {
+        const key = `${d.day}-${i}`;
+        const val = state[key] !== undefined ? Number(state[key]) : a.budget;
+        dayActual += val;
+        catActuals[a.type] = (catActuals[a.type] || 0) + val;
+      });
+      totalActual += dayActual;
+
+      // Update day total text
+      const dayTotalEl = document.querySelector(`[data-day-total="${d.day}"]`);
+      if (dayTotalEl) dayTotalEl.textContent = `實際 ¥${dayActual.toLocaleString()}`;
+
+      const dayActualEl = document.querySelector(`[data-day-actual="${d.day}"]`);
+      if (dayActualEl) dayActualEl.textContent = `實際 ¥${dayActual.toLocaleString()}`;
+
+      // Update day bar
+      const dayBar = document.querySelector(`[data-day-bar="${d.day}"]`);
+      if (dayBar) {
+        const max = Math.max(d.dayBudget, dayActual, 1);
+        const plannedPct = d.dayBudget / max * 100;
+        const actualPct = dayActual / max * 100;
+        dayBar.style.width = actualPct + '%';
+        dayBar.parentElement.querySelector('.planned').style.width = plannedPct + '%';
+        dayBar.style.backgroundColor = dayActual > d.dayBudget ? '#ef4444' : 'var(--accent-green)';
+      }
+    });
+
+    // Update summary cards
+    document.getElementById('summary-actual').textContent = `¥${totalActual.toLocaleString()}`;
+
+    const totalBudget = trip.days.reduce((s, d) => s + d.dayBudget, 0);
+    const diff = totalBudget - totalActual;
+    const diffEl = document.getElementById('summary-diff');
+    diffEl.textContent = `${diff >= 0 ? '-' : '+'}¥${Math.abs(diff).toLocaleString()}`;
+    diffEl.style.color = diff >= 0 ? 'var(--accent-green)' : '#ef4444';
+
+    // Update category bars and numbers
+    const maxCatPlanned = Math.max(1, ...trip.days.flatMap(d => d.activities).reduce((m, a) => {
+      m[a.type] = (m[a.type] || 0) + a.budget;
+      return m;
+    }, {}));
+
+    Object.entries(catActuals).forEach(([cat, actual]) => {
+      const catEl = document.querySelector(`[data-cat-actual="${cat}"]`);
+      if (catEl) catEl.textContent = `¥${actual.toLocaleString()}`;
+
+      const barEl = document.querySelector(`[data-cat-bar="${cat}"]`);
+      if (barEl) {
+        const planned = trip.days.flatMap(d => d.activities).filter(a => a.type === cat).reduce((s, a) => s + a.budget, 0);
+        barEl.style.width = Math.round(actual / maxCatPlanned * 100) + '%';
+        const plannedBar = barEl.parentElement.querySelector('.planned');
+        if (plannedBar) {
+          plannedBar.style.width = Math.round(planned / maxCatPlanned * 100) + '%';
+        }
+        barEl.style.backgroundColor = actual > planned ? '#ef4444' : '';
+      }
+    });
+  }
+
+  let state = loadState();
+
+  // Populate inputs from saved state
+  document.querySelectorAll('.expense-input').forEach(input => {
+    const day = input.dataset.day;
+    const idx = input.dataset.idx;
+    const key = `${day}-${idx}`;
+    if (state[key] !== undefined) {
+      input.value = state[key];
+    }
+  });
+
+  // Debounced input handler
+  let debounceTimer;
+  document.querySelectorAll('.expense-input').forEach(input => {
+    input.addEventListener('input', () => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        const key = `${input.dataset.day}-${input.dataset.idx}`;
+        const val = Number(input.value);
+        state[key] = isNaN(val) ? 0 : val;
+        saveState(state);
+        recalc();
+      }, 300);
+    });
+  });
+
+  // Initial calc
+  recalc();
+
+  // CSV export
+  document.getElementById('export-btn').addEventListener('click', () => {
+    const rows = [['Day', 'Time', 'Activity', 'Type', 'Planned', 'Actual']];
+    trip.days.forEach(d => {
+      d.activities.forEach((a, i) => {
+        const actual = state[`${d.day}-${i}`] !== undefined ? state[`${d.day}-${i}`] : a.budget;
+        rows.push([`Day ${d.day}`, a.time, a.title, a.type, a.budget, actual]);
+      });
+    });
+    const csv = rows.map(r => r.map(c => `"${c}"`).join(',')).join('\n');
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'kumamoto-expenses.csv';
+    a.click();
+  });
+
+  // Reset
+  document.getElementById('reset-btn').addEventListener('click', () => {
+    if (!confirm('確定要重置所有花費記錄嗎？此操作無法復原。')) return;
+    state = {};
+    localStorage.removeItem(STORAGE_KEY);
+    document.querySelectorAll('.expense-input').forEach(input => {
+      const day = Number(input.dataset.day);
+      const idx = Number(input.dataset.idx);
+      const activity = trip.days.find(d => d.day === day).activities[idx];
+      input.value = activity.budget;
+    });
+    recalc();
+  });
+</script>
+
+<style>
+  .expense-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .expense-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    background: var(--bg);
+    border-radius: 0.75rem;
+  }
+
+  .expense-icon {
+    font-size: 1.25rem;
+    flex-shrink: 0;
+    width: 2rem;
+    height: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: white;
+    border: 2px solid var(--border);
+    border-radius: 50%;
+  }
+
+  .expense-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .expense-title {
+    font-weight: 600;
+    font-size: 0.9rem;
+  }
+
+  .expense-meta {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    margin-top: 0.15rem;
+  }
+
+  .expense-amounts {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+  }
+
+  .expense-planned {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    min-width: 4rem;
+    text-align: right;
+  }
+
+  @media (max-width: 640px) {
+    .expense-row {
+      flex-wrap: wrap;
+    }
+    .expense-amounts {
+      width: 100%;
+      justify-content: flex-end;
+    }
+  }
+</style>
