@@ -21,16 +21,8 @@ jobs:
 
       - name: Deploy to Cloudflare Pages
         env:
-          CF_TOKEN_RAW: ${{ secrets.CF_API_TOKEN }}
+          CLOUDFLARE_API_KEY: ${{ secrets.CF_API_KEY }}
+          CLOUDFLARE_EMAIL: ${{ secrets.CF_EMAIL }}
           CLOUDFLARE_ACCOUNT_ID: a1ff5a85af343573e9c83d1e45d449f8
         run: |
-          CF_TRIMMED=$(echo "$CF_TOKEN_RAW" | tr -d '\n\r' | xargs)
-          echo "token len: ${#CF_TRIMMED}"
-          echo "token hex first 20: $(echo -n "$CF_TRIMMED" | head -c 20 | xxd -p)"
-          export CLOUDFLARE_API_TOKEN="$CF_TRIMMED"
-          echo "=== wrangler whoami ==="
-          npx wrangler whoami 2>&1 || true
-          echo "=== pages project list ==="
-          npx wrangler pages project list 2>&1 || true
-          echo "=== deploy ==="
           npx wrangler pages deploy dist --project-name=kumamoto-travel --branch=main
