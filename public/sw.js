@@ -1,5 +1,5 @@
-const CACHE = 'kumamoto-v1';
-const URLS = ['/', '/day1', '/day2', '/day3', '/day4', '/map', '/manifest.json'];
+const CACHE = 'kumamoto-v2';
+const URLS = ['/', '/day1', '/day2', '/day3', '/day4', '/map', '/weather', '/tickets', '/expenses', '/calendar', '/manifest.json'];
 
 self.addEventListener('install', e => {
   e.waitUntil(
