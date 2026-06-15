@@ -23,4 +23,10 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: a1ff5a85af343573e9c83d1e45d449f8
-        run: npx wrangler pages deploy dist --project-name=kumamoto-travel --branch=main
+        run: |
+          echo "=== wrangler whoami ==="
+          npx wrangler whoami
+          echo "=== pages project list ==="
+          npx wrangler pages project list
+          echo "=== deploy ==="
+          npx wrangler pages deploy dist --project-name=kumamoto-travel --branch=main
