@@ -1,14 +1,19 @@
 ---
 import Base from '../layouts/Base.astro';
-import { trip, foods } from '../data/itinerary';
+import { trip } from '../data/itinerary';
 const focusDay = Astro.url.searchParams.get('day');
+const locationsJson = JSON.stringify(trip.locations);
+const routesJson = JSON.stringify(trip.dailyRoutes);
+const focusDayStr = focusDay ?? 'null';
 ---
 
 <Base title="景點地圖 | 熊本旅行">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
   <header class="hero" style="padding:2rem 1rem;">
     <a href="/" style="color:white;opacity:0.7;text-decoration:none;font-size:0.85rem;">← 回總覽</a>
     <h1 style="margin-top:0.5rem;">🗺️ 熊本全境地圖</h1>
-    <p class="subtitle">Google Maps · 全景點標記+每日路線</p>
+    <p class="subtitle">OpenStreetMap · 全景點標記 + 每日路線</p>
   </header>
 
   <nav class="nav">
@@ -23,103 +28,148 @@ const focusDay = Astro.url.searchParams.get('day');
   </nav>
 
   <main class="container" style="padding-top:1.5rem;">
-    <!-- Google Maps Static -->
-    <div class="card">
-      <h2 style="margin-bottom:0.75rem;">📍 Google Maps 全景</h2>
-      <div class="map-container">
-        <iframe 
-          src="https://www.google.com/maps/embed/v1/view?key=AIzaSyB41DRUbKWJHPxaFjMAwdrzWzbVKartNGg&center=32.8031,130.7079&zoom=13&maptype=roadmap"
-          title="Google Maps" allowfullscreen loading="lazy">
-        </iframe>
-      </div>
-    </div>
 
     <!-- Day Selector -->
     <div class="card">
-      <h2 style="margin-bottom:0.75rem;">🔍 選擇日次</h2>
       <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
-        {trip.days.map(d => (
-          <a 
-            href={`/map?day=${d.day}`}
-            style={`
-              text-decoration:none;padding:0.5rem 1.25rem;
-              border-radius:999px;font-weight:600;font-size:0.85rem;
-              background:${focusDay === String(d.day) ? 'var(--brand)' : 'var(--bg)'};
-              color:${focusDay === String(d.day) ? 'white' : 'var(--text)'};
-            `}
-          >
-            Day {d.day} · {d.title}
-          </a>
-        ))}
-        <a 
-          href="/map"
-          style={`
-            text-decoration:none;padding:0.5rem 1.25rem;
-            border-radius:999px;font-weight:600;font-size:0.85rem;
-            background:${!focusDay ? 'var(--brand)' : 'var(--bg)'};
-            color:${!focusDay ? 'white' : 'var(--text)'};
-          `}
+        <a href="/map"
+          style={`text-decoration:none;padding:0.5rem 1.25rem;border-radius:999px;font-weight:600;font-size:0.85rem;background:${!focusDay ? 'var(--brand)' : 'var(--bg)'};color:${!focusDay ? 'white' : 'var(--text)'};`}
         >📍 全部景點</a>
+        {trip.days.map(d => (
+          <a href={`/map?day=${d.day}`}
+            style={`text-decoration:none;padding:0.5rem 1.25rem;border-radius:999px;font-weight:600;font-size:0.85rem;background:${focusDay === String(d.day) ? 'var(--brand)' : 'var(--bg)'};color:${focusDay === String(d.day) ? 'white' : 'var(--text)'};`}
+          >Day {d.day} · {d.title}</a>
+        ))}
       </div>
-      
-      <!-- Route info -->
+
       {focusDay && (
-        <div style="margin-top:1rem;padding:0.75rem;background:var(--bg);border-radius:0.75rem;">
+        <div style="margin-top:1rem;padding:0.75rem;background:var(--bg);border-radius:0.75rem;font-size:0.85rem;">
           <strong>Day {focusDay} 路線：</strong>
-          {trip.days[Number(focusDay)-1]?.activities.map((a,i,arr) => (
-            <span>{a.icon} <strong>{a.title}</strong>{i < arr.length-1 ? ' → ' : ''}</span>
+          {trip.days[Number(focusDay)-1]?.activities.map((a, i, arr) => (
+            <span>{a.icon} <strong>{a.title}</strong>{i < arr.length - 1 ? ' → ' : ''}</span>
           ))}
         </div>
       )}
     </div>
 
-    <!-- All Markers -->
+    <!-- Leaflet Map -->
+    <div class="card" style="padding:0;overflow:hidden;">
+      <div id="leaflet-map" style="width:100%;height:480px;border-radius:1rem;"></div>
+    </div>
+
+    <!-- Google Maps Directions Links -->
+    <div class="card">
+      <h2 style="margin-bottom:0.75rem;">🚗 Google Maps 路線查詢</h2>
+      <div style="display:flex;flex-direction:column;gap:0.5rem;">
+        {trip.days.map(d => {
+          const stops = d.activities.filter(a => a.type !== 'hotel' && a.type !== 'free').slice(0, 4);
+          const gmUrl = `https://www.google.com/maps/dir/${stops.map(a => encodeURIComponent(a.title + ' 熊本')).join('/')}`;
+          return (
+            <div style="background:var(--bg);border-radius:0.75rem;padding:0.75rem;">
+              <strong style="font-size:0.85rem;">Day {d.day}: {d.title}</strong>
+              <div style="display:flex;gap:0.5rem;margin-top:0.5rem;flex-wrap:wrap;align-items:center;">
+                {stops.map((a, i) => (
+                  <span style="font-size:0.8rem;">{a.icon} {a.title}{i < stops.length - 1 ? ' →' : ''}</span>
+                ))}
+                <a href={gmUrl} target="_blank" rel="noopener noreferrer"
+                  style="font-size:0.8rem;color:var(--brand);text-decoration:none;font-weight:600;margin-left:auto;">
+                  ↗ Google Maps
+                </a>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+
+    <!-- Location List -->
     <div class="card">
       <h2 style="margin-bottom:0.75rem;">📍 景點列表</h2>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:0.5rem;">
         {trip.locations.map(loc => (
           <div style="background:var(--bg);border-radius:0.75rem;padding:0.75rem;font-size:0.85rem;">
             <strong>{loc.name}</strong><br />
-            <span style="color:var(--text-muted);font-size:0.75rem;">
-              {loc.lat.toFixed(4)}, {loc.lng.toFixed(4)}
-            </span>
+            <span style="color:var(--text-muted);font-size:0.75rem;">{loc.lat.toFixed(4)}, {loc.lng.toFixed(4)}</span>
           </div>
         ))}
       </div>
     </div>
 
-    <!-- Google Maps Directions Links -->
-    <div class="card">
-      <h2 style="margin-bottom:0.75rem;">🚗 Google Maps 路線查詢</h2>
-      <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:0.75rem;">
-        點擊連結直接在 Google Maps 中打開路線規劃
-      </p>
-      <div style="display:flex;flex-direction:column;gap:0.5rem;">
-        {trip.days.map(d => (
-          <div style="background:var(--bg);border-radius:0.75rem;padding:0.75rem;">
-            <strong style="font-size:0.85rem;">Day {d.day}: {d.title}</strong>
-            <div style="display:flex;gap:0.5rem;margin-top:0.5rem;flex-wrap:wrap;">
-              {d.activities.filter(a => a.type !== 'hotel' && a.type !== 'free').slice(0,4).map((a,i,arr) => (
-                <span style="font-size:0.8rem;">
-                  {a.icon} {a.title}
-                  {i < arr.length-1 ? ' → ' : ''}
-                </span>
-              ))}
-              <a 
-                href={`https://www.google.com/maps/dir/${d.activities.filter(a => a.type !== 'hotel' && a.type !== 'free').slice(0,4).map(a => a.title).join('/')}`}
-                target="_blank" rel="noopener noreferrer"
-                style="font-size:0.8rem;color:var(--brand);text-decoration:none;font-weight:600;"
-              >
-                ↗ Google Maps
-              </a>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
   </main>
 
   <footer class="footer">
+    <p style="font-size:0.75rem;">地圖資料 © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener" style="color:var(--brand);">OpenStreetMap</a> contributors</p>
     <a href="/" style="color:var(--brand);">← 回總覽</a>
   </footer>
 </Base>
+
+<script define:vars={{ locationsJson, routesJson, focusDayStr }}>
+  const locations = JSON.parse(locationsJson);
+  const dailyRoutes = JSON.parse(routesJson);
+  const focusDay = focusDayStr !== 'null' ? Number(focusDayStr) : null;
+
+  const DAY_COLORS = { 1: '#d4342c', 2: '#2563eb', 3: '#16a34a', 4: '#9333ea' };
+
+  function initMap() {
+    const L = window.L;
+    const map = L.map('leaflet-map').setView([32.8031, 130.7079], 13);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      maxZoom: 19,
+    }).addTo(map);
+
+    // Add markers
+    locations.forEach(loc => {
+      const marker = L.circleMarker([loc.lat, loc.lng], {
+        radius: 8,
+        fillColor: '#d4342c',
+        color: '#fff',
+        weight: 2,
+        opacity: 1,
+        fillOpacity: 0.9,
+      }).addTo(map);
+      marker.bindPopup(`<strong>${loc.name}</strong>`);
+    });
+
+    // Draw routes
+    const routesToDraw = focusDay
+      ? { [focusDay]: dailyRoutes[focusDay] }
+      : dailyRoutes;
+
+    const allPoints = [];
+    Object.entries(routesToDraw).forEach(([day, coords]) => {
+      if (!coords || coords.length < 2) return;
+      const color = DAY_COLORS[Number(day)] || '#6b7280';
+      L.polyline(coords, { color, weight: 3, opacity: 0.8 }).addTo(map);
+
+      // Start/end markers for the focused day
+      if (focusDay) {
+        L.circleMarker(coords[0], { radius: 10, fillColor: '#10b981', color: '#fff', weight: 2, fillOpacity: 1 })
+          .addTo(map).bindPopup('出發點');
+        L.circleMarker(coords[coords.length - 1], { radius: 10, fillColor: '#6b7280', color: '#fff', weight: 2, fillOpacity: 1 })
+          .addTo(map).bindPopup('終點');
+      }
+
+      coords.forEach(c => allPoints.push(c));
+    });
+
+    if (focusDay && allPoints.length > 0) {
+      map.fitBounds(allPoints, { padding: [40, 40] });
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+      const script = document.createElement('script');
+      script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+      script.onload = initMap;
+      document.head.appendChild(script);
+    });
+  } else {
+    const script = document.createElement('script');
+    script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+    script.onload = initMap;
+    document.head.appendChild(script);
+  }
+</script>
