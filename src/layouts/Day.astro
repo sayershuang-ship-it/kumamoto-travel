@@ -54,7 +54,7 @@ const dayLocations = JSON.stringify(
       <h2 style="margin-bottom:1rem;">⏰ 時間軸</h2>
       <div class="timeline">
         {d.activities.map(a => (
-          <div class="activity">
+          <div class="activity" data-wiki={a.wiki || ''}>
             <div class="activity-icon">{a.icon}</div>
             <div class="time">{a.time}</div>
             <div class="title">{a.title}</div>
@@ -62,6 +62,7 @@ const dayLocations = JSON.stringify(
             <div class="budget {a.budget === 0 ? 'free' : ''}">
               {a.budget === 0 ? '🎫 免費' : `¥${a.budget.toLocaleString()}`}
             </div>
+            <div class="activity-photo" style="display:none;"></div>
           </div>
         ))}
       </div>
@@ -139,4 +140,27 @@ const dayLocations = JSON.stringify(
   script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
   script.onload = initDayMap;
   document.head.appendChild(script);
+
+  async function fetchWikiPhoto(searchTerm) {
+    if (!searchTerm) return null;
+    try {
+      const url = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(searchTerm)}&gsrnamespace=6&gsrlimit=1&prop=imageinfo&iiprop=url&iiurlwidth=400&format=json&origin=*`;
+      const res = await fetch(url);
+      const data = await res.json();
+      const pages = data.query?.pages;
+      if (!pages) return null;
+      const page = Object.values(pages)[0];
+      return page?.imageinfo?.[0]?.thumburl || null;
+    } catch { return null; }
+  }
+
+  document.querySelectorAll('.activity[data-wiki]').forEach(async el => {
+    const term = el.dataset.wiki;
+    if (!term) return;
+    const url = await fetchWikiPhoto(term);
+    if (!url) return;
+    const photoDiv = el.querySelector('.activity-photo');
+    photoDiv.innerHTML = `<img src="${url}" alt="${term}" style="width:100%;max-width:300px;border-radius:0.75rem;margin-top:0.5rem;" loading="lazy" />`;
+    photoDiv.style.display = 'block';
+  });
 </script>
