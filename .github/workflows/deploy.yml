@@ -16,10 +16,9 @@ jobs:
           node-version: 20
           cache: 'npm'
       
-      - run: npm ci
-      
+      - run: npm install --no-audit --prefer-offline --no-fund
       - run: npx astro build
-      
+
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
         with:
