@@ -1,0 +1,17 @@
+{
+  "name": "kumamoto-travel",
+  "version": "1.0.0",
+  "description": "熊本四天三夜自由行互動行程網站",
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "deploy": "npx wrangler pages deploy dist --project-name=kumamoto-travel"
+  },
+  "keywords": ["travel", "kumamoto", "japan", "astro"],
+  "license": "MIT",
+  "dependencies": {
+    "astro": "^5.0.0"
+  }
+}

@@ -1,0 +1,44 @@
+---
+import '../styles/global.css';
+const { title } = Astro.props;
+---
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="熊本四天三夜自由行 — 美食・休閒・溫泉・預算六萬日幣" />
+  <meta name="theme-color" content="#d4342c" />
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="apple-touch-icon" href="/images/icon-192.png" />
+  <title>{title} | 熊本旅行</title>
+</head>
+<body>
+  <slot />
+  <script>
+    // Register service worker
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js');
+      });
+    }
+    // PWA install prompt
+    let deferredPrompt;
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      const banner = document.getElementById('pwa-install');
+      if (banner) banner.classList.add('show');
+    });
+    document.addEventListener('click', async (e) => {
+      if (e.target?.closest('#install-btn') && deferredPrompt) {
+        deferredPrompt.prompt();
+        const result = await deferredPrompt.userChoice;
+        if (result.outcome === 'accepted') console.log('PWA installed');
+        deferredPrompt = null;
+        document.getElementById('pwa-install')?.classList.remove('show');
+      }
+    });
+  </script>
+</body>
+</html>

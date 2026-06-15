@@ -1,0 +1,91 @@
+---
+import Base from './Base.astro';
+import { trip } from '../data/itinerary';
+const { day } = Astro.props;
+const d = trip.days.find(x => x.day === day);
+---
+
+<Base title={`Day ${d.day}: ${d.title} | 熊本旅行`}>
+  <header class="hero" style="padding:2rem 1rem;">
+    <a href="/" style="color:white;opacity:0.7;text-decoration:none;font-size:0.85rem;">← 回總覽</a>
+    <h1 style="margin-top:0.5rem;">Day {d.day} · {d.date}</h1>
+    <p class="subtitle">{d.title}</p>
+    <p style="font-size:0.85rem;opacity:0.8;">{d.subtitle}</p>
+  </header>
+
+  <nav class="nav">
+    <a href="/">📋 總覽</a>
+    <a href="/day1" class={day===1?'active':''}>Day 1</a>
+    <a href="/day2" class={day===2?'active':''}>Day 2</a>
+    <a href="/day3" class={day===3?'active':''}>Day 3</a>
+    <a href="/day4" class={day===4?'active':''}>Day 4</a>
+    <a href="/map">🗺️ 地圖</a>
+  </nav>
+
+  <main class="container" style="padding-top:1.5rem;">
+    <!-- Day Map -->
+    <div class="card">
+      <div class="day-header">
+        <div class="day-num">{d.day}</div>
+        <div>
+          <div class="day-title">{d.title}</div>
+          <div class="day-subtitle">{d.date} · 預算 ¥{d.dayBudget.toLocaleString()}</div>
+        </div>
+      </div>
+      <div class="map-container">
+        <iframe loading="lazy"
+          src={`/map?day=${d.day}`}
+          title="Day {d.day} 路線圖">
+        </iframe>
+      </div>
+    </div>
+
+    <!-- Timeline -->
+    <div class="card">
+      <h2 style="margin-bottom:1rem;">⏰ 時間軸</h2>
+      <div class="timeline">
+        {d.activities.map(a => (
+          <div class="activity">
+            <div class="activity-icon">{a.icon}</div>
+            <div class="time">{a.time}</div>
+            <div class="title">{a.title}</div>
+            <div class="desc">{a.desc}</div>
+            <div class="budget {a.budget === 0 ? 'free' : ''}">
+              {a.budget === 0 ? '🎫 免費' : `¥${a.budget.toLocaleString()}`}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+
+    <!-- Budget breakdown -->
+    <div class="card">
+      <h2 style="margin-bottom:0.75rem;">💰 本日花費</h2>
+      <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:1rem;">
+        {[...new Set(d.activities.map(a => a.type))].map(type => {
+          const total = d.activities.filter(a => a.type === type).reduce((s, a) => s + a.budget, 0);
+          return <span class="tag tag-{type}">{type} ¥{total.toLocaleString()}</span>;
+        })}
+      </div>
+      <table class="budget-table">
+        <thead><tr><th>時間</th><th>活動</th><th>金額</th></tr></thead>
+        <tbody>
+          {d.activities.map(a => (
+            <tr>
+              <td style="white-space:nowrap;">{a.time}</td>
+              <td>{a.icon} {a.title}</td>
+              <td style="text-align:right;{a.budget===0?'color:var(--accent-green);':''}">
+                {a.budget === 0 ? '免費' : `¥${a.budget.toLocaleString()}`}
+              </td>
+            </tr>
+          ))}
+          <tr class="total-row"><td></td><td>本日合計</td><td style="text-align:right;">¥{d.dayBudget.toLocaleString()}</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <a href="/" style="color:var(--brand);">← 回總覽</a>
+  </footer>
+</Base>

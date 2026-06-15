@@ -1,0 +1,123 @@
+---
+import Base from '../layouts/Base.astro';
+import { trip, foods } from '../data/itinerary';
+const focusDay = Astro.url.searchParams.get('day');
+---
+
+<Base title="景點地圖 | 熊本旅行">
+  <header class="hero" style="padding:2rem 1rem;">
+    <a href="/" style="color:white;opacity:0.7;text-decoration:none;font-size:0.85rem;">← 回總覽</a>
+    <h1 style="margin-top:0.5rem;">🗺️ 熊本全境地圖</h1>
+    <p class="subtitle">Google Maps · 全景點標記+每日路線</p>
+  </header>
+
+  <nav class="nav">
+    <a href="/">📋 總覽</a>
+    <a href="/day1">Day 1</a>
+    <a href="/day2">Day 2</a>
+    <a href="/day3">Day 3</a>
+    <a href="/day4">Day 4</a>
+    <a href="/map" class="active">🗺️ 地圖</a>
+  </nav>
+
+  <main class="container" style="padding-top:1.5rem;">
+    <!-- Google Maps Static -->
+    <div class="card">
+      <h2 style="margin-bottom:0.75rem;">📍 Google Maps 全景</h2>
+      <div class="map-container">
+        <iframe 
+          src="https://www.google.com/maps/embed/v1/view?key=AIzaSyB41DRUbKWJHPxaFjMAwdrzWzbVKartNGg&center=32.8031,130.7079&zoom=13&maptype=roadmap"
+          title="Google Maps" allowfullscreen loading="lazy">
+        </iframe>
+      </div>
+    </div>
+
+    <!-- Day Selector -->
+    <div class="card">
+      <h2 style="margin-bottom:0.75rem;">🔍 選擇日次</h2>
+      <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+        {trip.days.map(d => (
+          <a 
+            href={`/map?day=${d.day}`}
+            style={`
+              text-decoration:none;padding:0.5rem 1.25rem;
+              border-radius:999px;font-weight:600;font-size:0.85rem;
+              background:${focusDay === String(d.day) ? 'var(--brand)' : 'var(--bg)'};
+              color:${focusDay === String(d.day) ? 'white' : 'var(--text)'};
+            `}
+          >
+            Day {d.day} · {d.title}
+          </a>
+        ))}
+        <a 
+          href="/map"
+          style={`
+            text-decoration:none;padding:0.5rem 1.25rem;
+            border-radius:999px;font-weight:600;font-size:0.85rem;
+            background:${!focusDay ? 'var(--brand)' : 'var(--bg)'};
+            color:${!focusDay ? 'white' : 'var(--text)'};
+          `}
+        >📍 全部景點</a>
+      </div>
+      
+      <!-- Route info -->
+      {focusDay && (
+        <div style="margin-top:1rem;padding:0.75rem;background:var(--bg);border-radius:0.75rem;">
+          <strong>Day {focusDay} 路線：</strong>
+          {trip.days[Number(focusDay)-1]?.activities.map((a,i,arr) => (
+            <span>{a.icon} <strong>{a.title}</strong>{i < arr.length-1 ? ' → ' : ''}</span>
+          ))}
+        </div>
+      )}
+    </div>
+
+    <!-- All Markers -->
+    <div class="card">
+      <h2 style="margin-bottom:0.75rem;">📍 景點列表</h2>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:0.5rem;">
+        {trip.locations.map(loc => (
+          <div style="background:var(--bg);border-radius:0.75rem;padding:0.75rem;font-size:0.85rem;">
+            <strong>{loc.name}</strong><br />
+            <span style="color:var(--text-muted);font-size:0.75rem;">
+              {loc.lat.toFixed(4)}, {loc.lng.toFixed(4)}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+
+    <!-- Google Maps Directions Links -->
+    <div class="card">
+      <h2 style="margin-bottom:0.75rem;">🚗 Google Maps 路線查詢</h2>
+      <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:0.75rem;">
+        點擊連結直接在 Google Maps 中打開路線規劃
+      </p>
+      <div style="display:flex;flex-direction:column;gap:0.5rem;">
+        {trip.days.map(d => (
+          <div style="background:var(--bg);border-radius:0.75rem;padding:0.75rem;">
+            <strong style="font-size:0.85rem;">Day {d.day}: {d.title}</strong>
+            <div style="display:flex;gap:0.5rem;margin-top:0.5rem;flex-wrap:wrap;">
+              {d.activities.filter(a => a.type !== 'hotel' && a.type !== 'free').slice(0,4).map((a,i,arr) => (
+                <span style="font-size:0.8rem;">
+                  {a.icon} {a.title}
+                  {i < arr.length-1 ? ' → ' : ''}
+                </span>
+              ))}
+              <a 
+                href={`https://www.google.com/maps/dir/${d.activities.filter(a => a.type !== 'hotel' && a.type !== 'free').slice(0,4).map(a => a.title).join('/')}`}
+                target="_blank" rel="noopener noreferrer"
+                style="font-size:0.8rem;color:var(--brand);text-decoration:none;font-weight:600;"
+              >
+                ↗ Google Maps
+              </a>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <a href="/" style="color:var(--brand);">← 回總覽</a>
+  </footer>
+</Base>
