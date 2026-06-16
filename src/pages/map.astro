@@ -5,10 +5,10 @@ const focusDay = Astro.url.searchParams.get('day');
 const locationsJson = JSON.stringify(trip.locations);
 const routesJson = JSON.stringify(trip.dailyRoutes);
 const focusDayStr = focusDay ?? 'null';
+const googleMapsApiKey = import.meta.env.PUBLIC_GOOGLE_MAPS_API_KEY ?? '';
 ---
 
 <Base title="景點地圖 | 熊本旅行">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
   <header class="hero" style="padding:2rem 1rem;">
     <a href="/" style="color:white;opacity:0.7;text-decoration:none;font-size:0.85rem;">← 回總覽</a>
@@ -100,38 +100,32 @@ const focusDayStr = focusDay ?? 'null';
   </main>
 
   <footer class="footer">
-    <p style="font-size:0.75rem;">地圖資料 © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener" style="color:var(--brand);">OpenStreetMap</a> contributors</p>
     <a href="/" style="color:var(--brand);">← 回總覽</a>
   </footer>
 </Base>
 
-<script define:vars={{ locationsJson, routesJson, focusDayStr }}>
+<script define:vars={{ locationsJson, routesJson, focusDayStr, googleMapsApiKey }}>
   const locations = JSON.parse(locationsJson);
   const dailyRoutes = JSON.parse(routesJson);
   const focusDay = focusDayStr !== 'null' ? Number(focusDayStr) : null;
 
   const DAY_COLORS = { 1: '#d4342c', 2: '#2563eb', 3: '#16a34a', 4: '#9333ea' };
 
-  function initMap() {
-    const L = window.L;
-    const map = L.map('leaflet-map').setView([32.8031, 130.7079], 13);
-
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-      maxZoom: 19,
-    }).addTo(map);
+  window.initMap = function initMap() {
+    const map = new google.maps.Map(document.getElementById('leaflet-map'), {
+      center: { lat: 32.8031, lng: 130.7079 },
+      zoom: 13,
+    });
 
     // Add markers
     locations.forEach(loc => {
-      const marker = L.circleMarker([loc.lat, loc.lng], {
-        radius: 8,
-        fillColor: '#d4342c',
-        color: '#fff',
-        weight: 2,
-        opacity: 1,
-        fillOpacity: 0.9,
-      }).addTo(map);
-      marker.bindPopup(`<strong>${loc.name}</strong>`);
+      const marker = new google.maps.Marker({
+        position: { lat: loc.lat, lng: loc.lng },
+        map,
+        title: loc.name,
+      });
+      const infoWindow = new google.maps.InfoWindow({ content: `<strong>${loc.name}</strong>` });
+      marker.addListener('click', () => infoWindow.open(map, marker));
     });
 
     // Draw routes
@@ -139,39 +133,49 @@ const focusDayStr = focusDay ?? 'null';
       ? { [focusDay]: dailyRoutes[focusDay] }
       : dailyRoutes;
 
-    const allPoints = [];
+    const bounds = new google.maps.LatLngBounds();
+    let hasRoute = false;
+
     Object.entries(routesToDraw).forEach(([day, coords]) => {
       if (!coords || coords.length < 2) return;
       const color = DAY_COLORS[Number(day)] || '#6b7280';
-      L.polyline(coords, { color, weight: 3, opacity: 0.8 }).addTo(map);
+      const path = coords.map(([lat, lng]) => ({ lat, lng }));
+
+      new google.maps.Polyline({
+        path,
+        map,
+        strokeColor: color,
+        strokeWeight: 3,
+        strokeOpacity: 0.8,
+      });
 
       // Start/end markers for the focused day
       if (focusDay) {
-        L.circleMarker(coords[0], { radius: 10, fillColor: '#10b981', color: '#fff', weight: 2, fillOpacity: 1 })
-          .addTo(map).bindPopup('出發點');
-        L.circleMarker(coords[coords.length - 1], { radius: 10, fillColor: '#6b7280', color: '#fff', weight: 2, fillOpacity: 1 })
-          .addTo(map).bindPopup('終點');
+        new google.maps.Marker({
+          position: path[0],
+          map,
+          label: { text: '出發', fontSize: '10px' },
+          icon: { path: google.maps.SymbolPath.CIRCLE, scale: 10, fillColor: '#10b981', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2 },
+        });
+        new google.maps.Marker({
+          position: path[path.length - 1],
+          map,
+          label: { text: '終點', fontSize: '10px' },
+          icon: { path: google.maps.SymbolPath.CIRCLE, scale: 10, fillColor: '#6b7280', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2 },
+        });
       }
 
-      coords.forEach(c => allPoints.push(c));
+      path.forEach(p => bounds.extend(p));
+      hasRoute = true;
     });
 
-    if (focusDay && allPoints.length > 0) {
-      map.fitBounds(allPoints, { padding: [40, 40] });
+    if (focusDay && hasRoute) {
+      map.fitBounds(bounds, 40);
     }
-  }
+  };
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-      const script = document.createElement('script');
-      script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-      script.onload = initMap;
-      document.head.appendChild(script);
-    });
-  } else {
-    const script = document.createElement('script');
-    script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-    script.onload = initMap;
-    document.head.appendChild(script);
-  }
+  const script = document.createElement('script');
+  script.src = `https://maps.googleapis.com/maps/api/js?key=${googleMapsApiKey}&callback=initMap`;
+  script.async = true;
+  document.head.appendChild(script);
 </script>
