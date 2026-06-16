@@ -137,13 +137,9 @@ const googleMapsApiKey = import.meta.env.PUBLIC_GOOGLE_MAPS_API_KEY ?? '';
       : dailyRoutes;
 
     const bounds = new google.maps.LatLngBounds();
-    let hasRoute = false;
 
-    Object.entries(routesToDraw).forEach(([day, coords]) => {
-      if (!coords || coords.length < 2) return;
-      const color = DAY_COLORS[Number(day)] || '#6b7280';
+    function drawStraightLine(coords, color) {
       const path = coords.map(([lat, lng]) => ({ lat, lng }));
-
       new google.maps.Polyline({
         path,
         map,
@@ -151,30 +147,57 @@ const googleMapsApiKey = import.meta.env.PUBLIC_GOOGLE_MAPS_API_KEY ?? '';
         strokeWeight: 3,
         strokeOpacity: 0.8,
       });
-
-      // Start/end markers for the focused day
-      if (focusDay) {
-        new google.maps.Marker({
-          position: path[0],
-          map,
-          label: { text: '出發', fontSize: '10px' },
-          icon: { path: google.maps.SymbolPath.CIRCLE, scale: 10, fillColor: '#10b981', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2 },
-        });
-        new google.maps.Marker({
-          position: path[path.length - 1],
-          map,
-          label: { text: '終點', fontSize: '10px' },
-          icon: { path: google.maps.SymbolPath.CIRCLE, scale: 10, fillColor: '#6b7280', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2 },
-        });
-      }
-
       path.forEach(p => bounds.extend(p));
-      hasRoute = true;
-    });
-
-    if (focusDay && hasRoute) {
       map.fitBounds(bounds, 40);
     }
+
+    function addEndpointMarkers(coords) {
+      const path = coords.map(([lat, lng]) => ({ lat, lng }));
+      new google.maps.Marker({
+        position: path[0],
+        map,
+        label: { text: '出發', fontSize: '10px' },
+        icon: { path: google.maps.SymbolPath.CIRCLE, scale: 10, fillColor: '#10b981', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2 },
+      });
+      new google.maps.Marker({
+        position: path[path.length - 1],
+        map,
+        label: { text: '終點', fontSize: '10px' },
+        icon: { path: google.maps.SymbolPath.CIRCLE, scale: 10, fillColor: '#6b7280', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2 },
+      });
+    }
+
+    Object.entries(routesToDraw).forEach(([day, coords]) => {
+      if (!coords || coords.length < 2) return;
+      const color = DAY_COLORS[Number(day)] || '#6b7280';
+
+      if (!focusDay) {
+        drawStraightLine(coords, color);
+        return;
+      }
+
+      // For a focused day, draw the actual road route via the Directions API.
+      addEndpointMarkers(coords);
+      const directionsRenderer = new google.maps.DirectionsRenderer({
+        map,
+        suppressMarkers: true,
+        polylineOptions: { strokeColor: color, strokeWeight: 4, strokeOpacity: 0.85 },
+      });
+      new google.maps.DirectionsService().route({
+        origin: { lat: coords[0][0], lng: coords[0][1] },
+        destination: { lat: coords[coords.length - 1][0], lng: coords[coords.length - 1][1] },
+        waypoints: coords.slice(1, -1).map(([lat, lng]) => ({ location: { lat, lng }, stopover: true })),
+        travelMode: google.maps.TravelMode.DRIVING,
+      }, (result, status) => {
+        if (status === 'OK') {
+          directionsRenderer.setDirections(result);
+          map.fitBounds(result.routes[0].bounds, 40);
+        } else {
+          // Directions API unavailable (e.g. not enabled on the key) — fall back to a straight-line route.
+          drawStraightLine(coords, color);
+        }
+      });
+    });
   };
 
   const script = document.createElement('script');

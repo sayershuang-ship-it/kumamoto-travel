@@ -1,4 +1,4 @@
-const CACHE = 'kumamoto-v3';
+const CACHE = 'kumamoto-v4';
 const URLS = ['/', '/day1', '/day2', '/day3', '/day4', '/map', '/weather', '/tickets', '/expenses', '/calendar', '/manifest.json'];
 
 self.addEventListener('install', e => {
@@ -9,6 +9,7 @@ self.addEventListener('install', e => {
 });
 
 self.addEventListener('fetch', e => {
+  if (new URL(e.request.url).origin !== self.location.origin) return;
   e.respondWith(
     caches.match(e.request).then(r => r || fetch(new Request(e.request, { redirect: 'follow' })).then(res => {
       const clone = res.clone();
