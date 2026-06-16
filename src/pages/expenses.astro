@@ -225,10 +225,11 @@ const totalBudget = trip.days.reduce((s, d) => s + d.dayBudget, 0);
     diffEl.style.color = diff >= 0 ? 'var(--accent-green)' : '#ef4444';
 
     // Update category bars and numbers
-    const maxCatPlanned = Math.max(1, ...trip.days.flatMap(d => d.activities).reduce((m, a) => {
+    const catPlannedTotals = trip.days.flatMap(d => d.activities).reduce((m, a) => {
       m[a.type] = (m[a.type] || 0) + a.budget;
       return m;
-    }, {}));
+    }, {});
+    const maxCatPlanned = Math.max(1, ...Object.values(catPlannedTotals));
 
     Object.entries(catActuals).forEach(([cat, actual]) => {
       const catEl = document.querySelector(`[data-cat-actual="${cat}"]`);

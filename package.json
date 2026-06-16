@@ -9,9 +9,15 @@
     "preview": "astro preview",
     "deploy": "npx wrangler pages deploy dist --project-name=kumamoto-travel"
   },
-  "keywords": ["travel", "kumamoto", "japan", "astro"],
+  "keywords": [
+    "travel",
+    "kumamoto",
+    "japan",
+    "astro"
+  ],
   "license": "MIT",
   "dependencies": {
+    "@cloudflare/workers-types": "^4.20260615.1",
     "astro": "^5.0.0"
   }
 }
