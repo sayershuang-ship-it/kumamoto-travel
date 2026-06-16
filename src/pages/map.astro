@@ -1,10 +1,8 @@
 ---
 import Base from '../layouts/Base.astro';
 import { trip } from '../data/itinerary';
-const focusDay = Astro.url.searchParams.get('day');
 const locationsJson = JSON.stringify(trip.locations);
 const routesJson = JSON.stringify(trip.dailyRoutes);
-const focusDayStr = focusDay ?? 'null';
 const googleMapsApiKey = import.meta.env.PUBLIC_GOOGLE_MAPS_API_KEY ?? '';
 ---
 
@@ -33,25 +31,21 @@ const googleMapsApiKey = import.meta.env.PUBLIC_GOOGLE_MAPS_API_KEY ?? '';
 
     <!-- Day Selector -->
     <div class="card">
-      <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
-        <a href="/map"
-          style={`text-decoration:none;padding:0.5rem 1.25rem;border-radius:999px;font-weight:600;font-size:0.85rem;background:${!focusDay ? 'var(--brand)' : 'var(--bg)'};color:${!focusDay ? 'white' : 'var(--text)'};`}
-        >📍 全部景點</a>
+      <div id="day-pills" style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+        <a href="/map" data-day="all" class="day-pill">📍 全部景點</a>
         {trip.days.map(d => (
-          <a href={`/map?day=${d.day}`}
-            style={`text-decoration:none;padding:0.5rem 1.25rem;border-radius:999px;font-weight:600;font-size:0.85rem;background:${focusDay === String(d.day) ? 'var(--brand)' : 'var(--bg)'};color:${focusDay === String(d.day) ? 'white' : 'var(--text)'};`}
-          >Day {d.day} · {d.title}</a>
+          <a href={`/map?day=${d.day}`} data-day={d.day} class="day-pill">Day {d.day} · {d.title}</a>
         ))}
       </div>
 
-      {focusDay && (
-        <div style="margin-top:1rem;padding:0.75rem;background:var(--bg);border-radius:0.75rem;font-size:0.85rem;">
-          <strong>Day {focusDay} 路線：</strong>
-          {trip.days[Number(focusDay)-1]?.activities.map((a, i, arr) => (
+      {trip.days.map(d => (
+        <div data-day-detail={d.day} style="display:none;margin-top:1rem;padding:0.75rem;background:var(--bg);border-radius:0.75rem;font-size:0.85rem;">
+          <strong>Day {d.day} 路線：</strong>
+          {d.activities.map((a, i, arr) => (
             <span>{a.icon} <strong>{a.title}</strong>{i < arr.length - 1 ? ' → ' : ''}</span>
           ))}
         </div>
-      )}
+      ))}
     </div>
 
     <!-- Leaflet Map -->
@@ -104,12 +98,21 @@ const googleMapsApiKey = import.meta.env.PUBLIC_GOOGLE_MAPS_API_KEY ?? '';
   </footer>
 </Base>
 
-<script define:vars={{ locationsJson, routesJson, focusDayStr, googleMapsApiKey }}>
+<script define:vars={{ locationsJson, routesJson, googleMapsApiKey }}>
   const locations = JSON.parse(locationsJson);
   const dailyRoutes = JSON.parse(routesJson);
-  const focusDay = focusDayStr !== 'null' ? Number(focusDayStr) : null;
+  const dayParam = new URLSearchParams(location.search).get('day');
+  const focusDay = dayParam ? Number(dayParam) : null;
 
   const DAY_COLORS = { 1: '#d4342c', 2: '#2563eb', 3: '#16a34a', 4: '#9333ea' };
+
+  // Highlight the active day pill and show its route detail box
+  document.querySelectorAll('.day-pill').forEach(pill => {
+    pill.classList.toggle('active', pill.dataset.day === (focusDay ? String(focusDay) : 'all'));
+  });
+  document.querySelectorAll('[data-day-detail]').forEach(el => {
+    el.style.display = focusDay && el.dataset.dayDetail === String(focusDay) ? 'block' : 'none';
+  });
 
   window.initMap = function initMap() {
     const map = new google.maps.Map(document.getElementById('leaflet-map'), {
@@ -179,3 +182,19 @@ const googleMapsApiKey = import.meta.env.PUBLIC_GOOGLE_MAPS_API_KEY ?? '';
   script.async = true;
   document.head.appendChild(script);
 </script>
+
+<style>
+  .day-pill {
+    text-decoration: none;
+    padding: 0.5rem 1.25rem;
+    border-radius: 999px;
+    font-weight: 600;
+    font-size: 0.85rem;
+    background: var(--bg);
+    color: var(--text);
+  }
+  .day-pill.active {
+    background: var(--brand);
+    color: white;
+  }
+</style>
