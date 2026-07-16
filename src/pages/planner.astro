@@ -33,10 +33,11 @@ const tripJson = JSON.stringify(trip);
 
     <!-- Budget summary -->
     <div class="card">
+      <div id="trip-meta-line" style="font-size:0.9rem;font-weight:600;margin-bottom:0.5rem;"></div>
       <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:0.5rem;">
         <h2>💰 計畫總預算</h2>
         <div><span id="plan-total" style="font-size:1.3rem;font-weight:700;color:var(--brand);"></span>
-        <span style="color:var(--text-muted);font-size:0.85rem;"> / ¥{trip.budget.toLocaleString()}</span></div>
+        <span style="color:var(--text-muted);font-size:0.85rem;"> / ¥<span id="budget-cap"></span></span></div>
       </div>
       <div class="budget-bar" style="height:0.65rem;background:var(--border);">
         <div id="plan-total-bar" class="seg" style="background:var(--brand);border-radius:999px;transition:width 0.3s;"></div>
@@ -51,6 +52,7 @@ const tripJson = JSON.stringify(trip);
       <button class="btn secondary" id="tb-ics">📅 下載 .ics</button>
       <button class="btn secondary" id="tb-share">🔗 複製分享連結</button>
       <button class="btn danger" id="tb-reset">♻️ 重置為原始行程</button>
+      <a class="btn secondary" href="/new" style="text-decoration:none;">🆕 開新旅程</a>
     </div>
 
     <div id="planner-root"></div>
@@ -107,6 +109,7 @@ const tripJson = JSON.stringify(trip);
   const T = window.TripTools;
   const trip = JSON.parse(tripJson);
   let days = T.loadPlan(trip.days);
+  let meta = T.loadMeta(trip);
   let editing = null; // { dayIdx, actIdx } or null when adding
 
   const root = document.getElementById('planner-root');
@@ -122,16 +125,20 @@ const tripJson = JSON.stringify(trip);
 
   function render() {
     document.getElementById('custom-banner').style.display = T.hasCustomPlan() ? 'block' : 'none';
+    document.getElementById('trip-meta-line').innerHTML =
+      `🗾 ${T.esc(meta.title)} <span style="color:var(--text-muted);font-weight:400;">· ${T.esc(meta.dates)} · ${meta.travelers}人</span>` +
+      (meta.custom ? '<span class="swapped-badge">新旅程</span>' : '');
+    document.getElementById('budget-cap').textContent = Number(meta.budget).toLocaleString();
 
     const total = T.planTotal(days);
     document.getElementById('plan-total').textContent = '¥' + total.toLocaleString();
-    const pct = Math.min(100, Math.round(total / trip.budget * 100));
+    const pct = meta.budget > 0 ? Math.min(100, Math.round(total / meta.budget * 100)) : 100;
     const bar = document.getElementById('plan-total-bar');
     bar.style.width = pct + '%';
-    bar.style.background = total > trip.budget ? '#ef4444' : 'var(--brand)';
-    document.getElementById('plan-total-note').textContent = total > trip.budget
-      ? `⚠️ 超出預算 ¥${(total - trip.budget).toLocaleString()}`
-      : `尚有餘裕 ¥${(trip.budget - total).toLocaleString()}（${pct}% 已分配）`;
+    bar.style.background = total > meta.budget ? '#ef4444' : 'var(--brand)';
+    document.getElementById('plan-total-note').textContent = total > meta.budget
+      ? `⚠️ 超出預算 ¥${(total - meta.budget).toLocaleString()}`
+      : `尚有餘裕 ¥${(meta.budget - total).toLocaleString()}（${pct}% 已分配）`;
 
     root.innerHTML = days.map((d, di) => `
       <div class="card" data-day="${di}">
@@ -143,6 +150,7 @@ const tripJson = JSON.stringify(trip);
           </div>
         </div>
         <div class="plan-day-drop" data-day="${di}" data-pos="0"></div>
+        ${d.activities.length === 0 ? '<p style="color:var(--text-muted);font-size:0.85rem;padding:0.5rem 0;">這天還沒有活動——按上方「➕ 新增活動」，或從 📥 匯入頁把訂單排進來。</p>' : ''}
         ${d.activities.map((a, ai) => `
           <div class="plan-activity" draggable="true" data-day="${di}" data-act="${ai}">
             <span class="drag-handle" title="拖曳排序">☰</span>
@@ -247,6 +255,9 @@ const tripJson = JSON.stringify(trip);
   /* ---- modal ---- */
   function openModal(title, act, di) {
     document.getElementById('modal-title').textContent = title;
+    // 天數選項依目前計畫動態產生（新旅程天數可能不是 4 天）
+    form.day.innerHTML = days.map((d, i) =>
+      `<option value="${i}">Day ${d.day} · ${T.esc(d.date)}</option>`).join('');
     form.icon.value = act?.icon || '';
     form.time.value = act?.time || '';
     form.title.value = act?.title || '';
@@ -286,17 +297,17 @@ const tripJson = JSON.stringify(trip);
   });
 
   document.getElementById('tb-json').addEventListener('click', () => {
-    T.download('kumamoto-plan.json',
-      JSON.stringify({ version: 1, title: trip.title, days }, null, 2),
+    T.download('trip-plan.json',
+      JSON.stringify({ version: 1, meta, days }, null, 2),
       'application/json;charset=utf-8');
   });
 
   document.getElementById('tb-ics').addEventListener('click', () => {
-    T.download('kumamoto-travel.ics', T.buildICS(trip, days), 'text/calendar;charset=utf-8');
+    T.download('trip.ics', T.buildICS({ ...trip, ...meta }, days), 'text/calendar;charset=utf-8');
   });
 
   document.getElementById('tb-share').addEventListener('click', async () => {
-    const url = `${location.origin}/import#plan=${T.encodeShare({ version: 1, days })}`;
+    const url = `${location.origin}/import#plan=${T.encodeShare({ version: 1, meta: meta.custom ? meta : undefined, days })}`;
     try {
       await navigator.clipboard.writeText(url);
       alert('已複製分享連結！傳給旅伴，開啟後可一鍵套用你的行程。');
@@ -306,9 +317,11 @@ const tripJson = JSON.stringify(trip);
   });
 
   document.getElementById('tb-reset').addEventListener('click', () => {
-    if (!confirm('確定捨棄所有自訂變更，回到原始行程？')) return;
+    if (!confirm('確定捨棄所有自訂變更（含新旅程設定），回到原始熊本行程？')) return;
     T.resetPlan();
+    T.resetMeta();
     days = T.loadPlan(trip.days);
+    meta = T.loadMeta(trip);
     render();
   });
 

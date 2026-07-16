@@ -116,6 +116,7 @@ const tripJson = JSON.stringify(trip);
 <script define:vars={{ tripJson }}>
   const T = window.TripTools;
   const trip = JSON.parse(tripJson);
+  const meta = T.loadMeta(trip);
   let bookings = T.loadBookings();
 
   const typeMeta = {
@@ -131,10 +132,10 @@ const tripJson = JSON.stringify(trip);
   const form = document.getElementById('booking-form');
   const list = document.getElementById('booking-list');
 
-  function dayIndexForDate(dateStr) {
+  function dayIndexForDate(dateStr, dayCount) {
     if (!dateStr) return -1;
-    const diff = Math.round((new Date(dateStr + 'T00:00:00') - new Date(trip.startDate + 'T00:00:00')) / 86400000);
-    return (diff >= 0 && diff < trip.days.length) ? diff : -1;
+    const diff = Math.round((new Date(dateStr + 'T00:00:00') - new Date(meta.startDate + 'T00:00:00')) / 86400000);
+    return (diff >= 0 && diff < dayCount) ? diff : -1;
   }
 
   function renderBookings() {
@@ -175,12 +176,12 @@ const tripJson = JSON.stringify(trip);
       T.saveBookings(bookings);
       renderBookings();
     } else if (btn.dataset.op === 'plan') {
-      const suggested = dayIndexForDate(b.date);
-      const input = prompt(`加到哪一天？輸入 1-${trip.days.length}`, suggested >= 0 ? String(suggested + 1) : '1');
-      if (input === null) return;
-      const di = Math.min(Math.max(1, parseInt(input, 10) || 1), trip.days.length) - 1;
-      const m = typeMeta[b.type] || typeMeta.other;
       const days = T.loadPlan(trip.days);
+      const suggested = dayIndexForDate(b.date, days.length);
+      const input = prompt(`加到哪一天？輸入 1-${days.length}`, suggested >= 0 ? String(suggested + 1) : '1');
+      if (input === null) return;
+      const di = Math.min(Math.max(1, parseInt(input, 10) || 1), days.length) - 1;
+      const m = typeMeta[b.type] || typeMeta.other;
       days[di].activities.push({
         time: b.time || '未定',
         icon: m.icon,
@@ -243,6 +244,7 @@ const tripJson = JSON.stringify(trip);
       banner.style.display = 'block';
       document.getElementById('share-apply').addEventListener('click', () => {
         T.savePlan(shared.days);
+        if (shared.meta) T.saveMeta(shared.meta);
         location.href = '/planner';
       });
       document.getElementById('share-dismiss').addEventListener('click', () => {
@@ -259,10 +261,11 @@ const tripJson = JSON.stringify(trip);
       version: 1,
       exportedAt: new Date().toISOString(),
       plan: JSON.parse(localStorage.getItem(T.PLAN_KEY) || 'null'),
+      meta: JSON.parse(localStorage.getItem(T.META_KEY) || 'null'),
       bookings,
       expenses: JSON.parse(localStorage.getItem('kumamoto-expenses') || 'null'),
     };
-    T.download('kumamoto-backup.json', JSON.stringify(backup, null, 2), 'application/json;charset=utf-8');
+    T.download('trip-backup.json', JSON.stringify(backup, null, 2), 'application/json;charset=utf-8');
   });
 
   document.getElementById('restore-input').addEventListener('change', async e => {
@@ -274,6 +277,7 @@ const tripJson = JSON.stringify(trip);
       const restored = [];
       if (data.app === 'kumamoto-travel') {
         if (data.plan?.days) { T.savePlan(data.plan.days); restored.push('自訂行程'); }
+        if (data.meta) { T.saveMeta(data.meta); restored.push('旅程設定'); }
         if (Array.isArray(data.bookings)) { bookings = data.bookings; T.saveBookings(bookings); restored.push(`訂單 ${bookings.length} 筆`); }
         if (data.expenses) { localStorage.setItem('kumamoto-expenses', JSON.stringify(data.expenses)); restored.push('花費紀錄'); }
       } else if (Array.isArray(data.days)) {

@@ -2,6 +2,7 @@
 (function () {
   const PLAN_KEY = 'kumamoto-plan-v1';
   const BOOKINGS_KEY = 'kumamoto-bookings-v1';
+  const META_KEY = 'kumamoto-tripmeta-v1';
 
   function clone(o) { return JSON.parse(JSON.stringify(o)); }
 
@@ -37,6 +38,60 @@
   }
 
   function planTotal(days) { return days.reduce((s, d) => s + dayTotal(d), 0); }
+
+  /* ---------- 旅程設定覆寫（Trip meta overlay） ---------- */
+
+  // 回傳有效的旅程設定：預設用內建範本（熊本），開過新旅程則用使用者設定
+  function loadMeta(baseTrip) {
+    const base = {
+      title: baseTrip.title, subtitle: baseTrip.subtitle, dates: baseTrip.dates,
+      travelers: baseTrip.travelers, budget: baseTrip.budget,
+      startDate: baseTrip.startDate, timezone: baseTrip.timezone || 'Asia/Tokyo',
+      custom: false,
+    };
+    try {
+      const saved = JSON.parse(localStorage.getItem(META_KEY));
+      if (saved && saved.title) return { ...base, ...saved, custom: true };
+    } catch { /* fall back to base */ }
+    return base;
+  }
+
+  function saveMeta(meta) { localStorage.setItem(META_KEY, JSON.stringify(meta)); }
+
+  function resetMeta() { localStorage.removeItem(META_KEY); }
+
+  const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六'];
+
+  // 依 目的地/開始日/天數/人數/預算 產生全新旅程骨架（meta + 空白 days）
+  function buildTripSkeleton(opts) {
+    const start = new Date(opts.startDate + 'T00:00:00');
+    const count = Math.min(Math.max(1, opts.dayCount | 0), 30);
+    const days = [];
+    for (let i = 0; i < count; i++) {
+      const d = new Date(start);
+      d.setDate(d.getDate() + i);
+      days.push({
+        day: i + 1,
+        date: `${d.getMonth() + 1}/${d.getDate()} (${WEEKDAYS[d.getDay()]})`,
+        title: i === 0 ? '抵達日' : (i === count - 1 && count > 1 ? '返程日' : '自由安排'),
+        subtitle: '',
+        activities: [],
+      });
+    }
+    const end = new Date(start);
+    end.setDate(end.getDate() + count - 1);
+    const nights = count - 1;
+    const meta = {
+      title: `${opts.destination}${count}天${nights > 0 ? nights + '夜' : ''}自由行`,
+      subtitle: opts.subtitle || '',
+      dates: `${start.getFullYear()}/${start.getMonth() + 1}/${start.getDate()} (${WEEKDAYS[start.getDay()]}) → ${end.getMonth() + 1}/${end.getDate()} (${WEEKDAYS[end.getDay()]})`,
+      travelers: Math.max(1, opts.travelers | 0),
+      budget: Math.max(0, Number(opts.budget) || 0),
+      startDate: opts.startDate,
+      timezone: opts.timezone || 'Asia/Tokyo',
+    };
+    return { meta, days };
+  }
 
   /* ---------- 訂單彙整（Bookings） ---------- */
 
@@ -168,9 +223,10 @@
   }
 
   window.TripTools = {
-    PLAN_KEY, BOOKINGS_KEY,
+    PLAN_KEY, BOOKINGS_KEY, META_KEY,
     esc, clone,
     loadPlan, savePlan, resetPlan, hasCustomPlan, dayTotal, planTotal,
+    loadMeta, saveMeta, resetMeta, buildTripSkeleton,
     loadBookings, saveBookings, parseBookingText,
     buildICS, encodeShare, decodeShare, download,
   };

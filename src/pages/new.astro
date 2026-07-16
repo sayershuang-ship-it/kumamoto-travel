@@ -1,0 +1,136 @@
+---
+import Base from '../layouts/Base.astro';
+import { trip } from '../data/itinerary';
+const tripJson = JSON.stringify(trip);
+---
+
+<Base title="開新旅程">
+  <header class="hero" style="padding:2rem 1rem;">
+    <h1>🆕 開新旅程</h1>
+    <p class="subtitle">輸入地點、日期、天數，馬上開始規劃下一段旅程</p>
+  </header>
+
+  <nav class="nav">
+    <a href="/">📋 總覽</a>
+    <a href="/day1">Day 1</a>
+    <a href="/day2">Day 2</a>
+    <a href="/day3">Day 3</a>
+    <a href="/day4">Day 4</a>
+    <a href="/planner">🧭 規劃</a>
+    <a href="/map">🗺️ 地圖</a>
+    <a href="/weather">🌤️ 天氣</a>
+    <a href="/tickets">🎫 預訂</a>
+    <a href="/expenses">💰 花費</a>
+    <a href="/calendar">📅 日曆</a>
+    <a href="/import">📥 匯入</a>
+    <a href="/planb">🆘 應變</a>
+  </nav>
+
+  <main class="container" style="padding-top:1.5rem;">
+    <div id="existing-banner" class="alert-banner" style="display:none;">
+      ⚠️ 你目前已有一份自訂行程（<span id="existing-summary"></span>）。
+      開新旅程會<strong>覆蓋</strong>它——建議先到 📥 匯入頁「匯出完整備份」保存。
+    </div>
+
+    <div class="card" style="max-width:32rem;margin:0 auto;">
+      <h2 style="margin-bottom:1rem;">✈️ 新旅程設定</h2>
+      <form id="new-trip-form">
+        <div class="form-row">
+          <label>目的地 *</label>
+          <input name="destination" required maxlength="20" placeholder="例：福岡、大阪、東京" />
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;">
+          <div class="form-row">
+            <label>開始日期 *</label>
+            <input name="startDate" type="date" required />
+          </div>
+          <div class="form-row">
+            <label>天數 *</label>
+            <input name="dayCount" type="number" min="1" max="30" value="4" required />
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;">
+          <div class="form-row">
+            <label>人數</label>
+            <input name="travelers" type="number" min="1" max="20" value="2" />
+          </div>
+          <div class="form-row">
+            <label>總預算 (¥)</label>
+            <input name="budget" type="number" min="0" step="1000" value="60000" />
+          </div>
+        </div>
+        <div class="form-row">
+          <label>副標題（選填）</label>
+          <input name="subtitle" maxlength="40" placeholder="例：美食・購物・親子" />
+        </div>
+        <div id="preview" style="display:none;background:var(--bg);border-radius:0.75rem;padding:0.85rem 1rem;margin-bottom:1rem;font-size:0.9rem;"></div>
+        <button type="submit" class="btn" style="width:100%;justify-content:center;">🚀 建立旅程，進入規劃工作台</button>
+      </form>
+      <p style="font-size:0.75rem;color:var(--text-muted);margin-top:1rem;">
+        會產生每日空白骨架（抵達日／自由安排／返程日），到 🧭 規劃工作台新增活動、
+        到 📥 匯入頁貼上機票飯店確認信。新旅程存在此裝置瀏覽器；
+        Day 頁面、地圖、美食等頁仍為熊本範本內容。
+      </p>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <a href="/" style="color:var(--brand);">← 回總覽</a>
+  </footer>
+</Base>
+
+<script is:inline src="/js/trip-tools.js"></script>
+<script define:vars={{ tripJson }}>
+  const T = window.TripTools;
+  const trip = JSON.parse(tripJson);
+  const form = document.getElementById('new-trip-form');
+
+  // 已有自訂行程時提醒先備份
+  if (T.hasCustomPlan()) {
+    const meta = T.loadMeta(trip);
+    const days = T.loadPlan(trip.days);
+    const count = days.reduce((s, d) => s + d.activities.length, 0);
+    document.getElementById('existing-summary').textContent =
+      `${meta.title} · ${days.length} 天 · ${count} 個活動`;
+    document.getElementById('existing-banner').style.display = 'block';
+  }
+
+  // 預設開始日期：今天 + 30 天
+  const def = new Date();
+  def.setDate(def.getDate() + 30);
+  form.startDate.value = def.toISOString().slice(0, 10);
+
+  // 即時預覽
+  function updatePreview() {
+    const el = document.getElementById('preview');
+    if (!form.destination.value.trim() || !form.startDate.value) { el.style.display = 'none'; return; }
+    const { meta } = T.buildTripSkeleton({
+      destination: form.destination.value.trim(),
+      startDate: form.startDate.value,
+      dayCount: +form.dayCount.value || 1,
+      travelers: +form.travelers.value || 1,
+      budget: +form.budget.value || 0,
+      subtitle: form.subtitle.value.trim(),
+    });
+    el.innerHTML = `📝 <strong>${T.esc(meta.title)}</strong><br/>` +
+      `<span style="color:var(--text-muted);">📅 ${T.esc(meta.dates)} · 👥 ${meta.travelers}人 · 💰 ¥${meta.budget.toLocaleString()}</span>`;
+    el.style.display = 'block';
+  }
+  form.addEventListener('input', updatePreview);
+
+  form.addEventListener('submit', e => {
+    e.preventDefault();
+    if (T.hasCustomPlan() && !confirm('確定覆蓋現有的自訂行程？（未備份的變更會遺失）')) return;
+    const { meta, days } = T.buildTripSkeleton({
+      destination: form.destination.value.trim(),
+      startDate: form.startDate.value,
+      dayCount: +form.dayCount.value || 1,
+      travelers: +form.travelers.value || 1,
+      budget: +form.budget.value || 0,
+      subtitle: form.subtitle.value.trim(),
+    });
+    T.saveMeta(meta);
+    T.savePlan(days);
+    location.href = '/planner';
+  });
+</script>
