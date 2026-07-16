@@ -1,0 +1,300 @@
+---
+import Base from '../layouts/Base.astro';
+import { trip } from '../data/itinerary';
+const tripJson = JSON.stringify(trip);
+---
+
+<Base title="資料匯入・訂單彙整">
+  <header class="hero" style="padding:2rem 1rem;">
+    <h1>📥 資料匯入・訂單彙整</h1>
+    <p class="subtitle">貼上確認信自動解析，機票飯店門票一站管理</p>
+  </header>
+
+  <nav class="nav">
+    <a href="/">📋 總覽</a>
+    <a href="/day1">Day 1</a>
+    <a href="/day2">Day 2</a>
+    <a href="/day3">Day 3</a>
+    <a href="/day4">Day 4</a>
+    <a href="/planner">🧭 規劃</a>
+    <a href="/map">🗺️ 地圖</a>
+    <a href="/weather">🌤️ 天氣</a>
+    <a href="/tickets">🎫 預訂</a>
+    <a href="/expenses">💰 花費</a>
+    <a href="/calendar">📅 日曆</a>
+    <a href="/import" class="active">📥 匯入</a>
+    <a href="/planb">🆘 應變</a>
+  </nav>
+
+  <main class="container" style="padding-top:1.5rem;">
+    <!-- Shared plan banner (shows when opened via share link) -->
+    <div id="share-banner" class="alert-banner" style="display:none;">
+      🔗 收到旅伴分享的行程（<span id="share-summary"></span>）。
+      套用會覆蓋你目前的自訂行程。
+      <div style="margin-top:0.5rem;display:flex;gap:0.5rem;">
+        <button class="btn" id="share-apply">✅ 套用此行程</button>
+        <button class="btn secondary" id="share-dismiss">略過</button>
+      </div>
+    </div>
+
+    <!-- Paste & parse -->
+    <div class="card">
+      <h2 style="margin-bottom:0.5rem;">✉️ 貼上訂位確認信</h2>
+      <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:0.75rem;">
+        把航空公司/訂房網的確認信全文貼進來，自動抽出航班號、日期時間、訂位代號（解析結果可再修改）。
+      </p>
+      <textarea class="paste-box" id="paste-input" placeholder="例：您的訂位已確認&#10;航班 BR106  2026/07/17 08:50 台北(TPE) → 熊本(KMJ)&#10;訂位代號：ABC12D"></textarea>
+      <div class="toolbar" style="margin-top:0.75rem;margin-bottom:0;">
+        <button class="btn" id="parse-btn">🔍 解析內容</button>
+        <button class="btn secondary" id="clear-btn">清空</button>
+      </div>
+    </div>
+
+    <!-- Manual / confirm form -->
+    <div class="card">
+      <h2 style="margin-bottom:0.75rem;">📝 新增/確認訂單</h2>
+      <form id="booking-form">
+        <div style="display:grid;grid-template-columns:1fr 2fr;gap:0.5rem;">
+          <div class="form-row"><label>類型</label>
+            <select name="type">
+              <option value="flight">✈️ 航班</option>
+              <option value="hotel">🏨 住宿</option>
+              <option value="train">🚄 鐵路</option>
+              <option value="bus">🚌 巴士</option>
+              <option value="ticket">🎫 門票/展演</option>
+              <option value="restaurant">🍽️ 餐廳訂位</option>
+              <option value="other">📌 其他</option>
+            </select>
+          </div>
+          <div class="form-row"><label>名稱</label><input name="title" required maxlength="60" placeholder="航班 BR106 / 東橫INN熊本駅前" /></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.5rem;">
+          <div class="form-row"><label>日期</label><input name="date" type="date" /></div>
+          <div class="form-row"><label>時間</label><input name="time" type="time" /></div>
+          <div class="form-row"><label>訂位代號</label><input name="ref" maxlength="12" style="text-transform:uppercase;" /></div>
+        </div>
+        <div class="form-row"><label>備註</label><input name="note" maxlength="120" /></div>
+        <button type="submit" class="btn">💾 儲存訂單</button>
+      </form>
+    </div>
+
+    <!-- Bookings list -->
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:0.5rem;">
+        <h2>🗂️ 已彙整訂單</h2>
+        <span id="booking-count" style="font-size:0.85rem;color:var(--text-muted);"></span>
+      </div>
+      <div id="booking-list" style="margin-top:0.75rem;"></div>
+      <p style="font-size:0.75rem;color:var(--text-muted);">
+        點「➕ 加入行程」會把訂單排進 🧭 規劃工作台對應的日子。
+      </p>
+    </div>
+
+    <!-- Backup / restore -->
+    <div class="card">
+      <h2 style="margin-bottom:0.5rem;">💾 備份與還原</h2>
+      <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:0.75rem;">
+        所有資料（自訂行程、訂單、花費紀錄）都存在此裝置的瀏覽器裡。換裝置前先匯出備份。
+      </p>
+      <div class="toolbar" style="margin-bottom:0;">
+        <button class="btn" id="backup-btn">📤 匯出完整備份</button>
+        <label class="btn secondary" style="cursor:pointer;">
+          📂 匯入備份 / 行程 JSON
+          <input type="file" id="restore-input" accept="application/json,.json" style="display:none;" />
+        </label>
+      </div>
+      <div id="restore-msg" style="font-size:0.85rem;margin-top:0.5rem;"></div>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <a href="/" style="color:var(--brand);">← 回總覽</a>
+  </footer>
+</Base>
+
+<script is:inline src="/js/trip-tools.js"></script>
+<script define:vars={{ tripJson }}>
+  const T = window.TripTools;
+  const trip = JSON.parse(tripJson);
+  let bookings = T.loadBookings();
+
+  const typeMeta = {
+    flight: { icon: '✈️', label: '航班', actType: 'transport' },
+    hotel: { icon: '🏨', label: '住宿', actType: 'hotel' },
+    train: { icon: '🚄', label: '鐵路', actType: 'transport' },
+    bus: { icon: '🚌', label: '巴士', actType: 'transport' },
+    ticket: { icon: '🎫', label: '門票', actType: 'ticket' },
+    restaurant: { icon: '🍽️', label: '餐廳', actType: 'food' },
+    other: { icon: '📌', label: '其他', actType: 'free' },
+  };
+
+  const form = document.getElementById('booking-form');
+  const list = document.getElementById('booking-list');
+
+  function dayIndexForDate(dateStr) {
+    if (!dateStr) return -1;
+    const diff = Math.round((new Date(dateStr + 'T00:00:00') - new Date(trip.startDate + 'T00:00:00')) / 86400000);
+    return (diff >= 0 && diff < trip.days.length) ? diff : -1;
+  }
+
+  function renderBookings() {
+    document.getElementById('booking-count').textContent = bookings.length ? `${bookings.length} 筆` : '';
+    if (!bookings.length) {
+      list.innerHTML = '<p style="color:var(--text-muted);font-size:0.9rem;">還沒有訂單。貼上確認信或用上方表單新增。</p>';
+      return;
+    }
+    list.innerHTML = bookings.map((b, i) => {
+      const m = typeMeta[b.type] || typeMeta.other;
+      return `
+      <div class="booking-card" data-idx="${i}">
+        <div class="b-icon">${m.icon}</div>
+        <div class="b-body">
+          <div class="b-title">${T.esc(b.title)}</div>
+          <div class="b-meta">
+            ${b.date ? '📅 ' + T.esc(b.date) : ''} ${b.time ? '🕐 ' + T.esc(b.time) : ''}
+            ${b.ref ? '· 代號 <span class="b-ref">' + T.esc(b.ref) + '</span>' : ''}
+          </div>
+          ${b.note ? `<div class="b-meta">${T.esc(b.note)}</div>` : ''}
+        </div>
+        <div class="act-actions">
+          <button class="icon-btn" data-op="plan" title="加入行程">➕</button>
+          <button class="icon-btn" data-op="del" title="刪除">🗑️</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  list.addEventListener('click', e => {
+    const btn = e.target.closest('.icon-btn');
+    if (!btn) return;
+    const i = +btn.closest('.booking-card').dataset.idx;
+    const b = bookings[i];
+    if (btn.dataset.op === 'del') {
+      if (!confirm(`刪除「${b.title}」？`)) return;
+      bookings.splice(i, 1);
+      T.saveBookings(bookings);
+      renderBookings();
+    } else if (btn.dataset.op === 'plan') {
+      const suggested = dayIndexForDate(b.date);
+      const input = prompt(`加到哪一天？輸入 1-${trip.days.length}`, suggested >= 0 ? String(suggested + 1) : '1');
+      if (input === null) return;
+      const di = Math.min(Math.max(1, parseInt(input, 10) || 1), trip.days.length) - 1;
+      const m = typeMeta[b.type] || typeMeta.other;
+      const days = T.loadPlan(trip.days);
+      days[di].activities.push({
+        time: b.time || '未定',
+        icon: m.icon,
+        title: b.title,
+        desc: [b.ref ? `訂位代號 ${b.ref}` : '', b.note].filter(Boolean).join(' · '),
+        budget: 0,
+        type: m.actType,
+      });
+      T.savePlan(days);
+      if (confirm(`已加入 Day ${di + 1}！前往規劃工作台調整順序？`)) location.href = '/planner';
+    }
+  });
+
+  /* ---- paste & parse ---- */
+  document.getElementById('parse-btn').addEventListener('click', () => {
+    const text = document.getElementById('paste-input').value;
+    if (!text.trim()) { alert('請先貼上確認信內容'); return; }
+    const d = T.parseBookingText(text);
+    form.type.value = d.type;
+    form.title.value = d.title;
+    form.date.value = d.date;
+    form.time.value = d.time;
+    form.ref.value = d.ref;
+    form.note.value = d.note.replace(/\s+/g, ' ').slice(0, 100);
+    form.title.focus();
+    form.scrollIntoView({ behavior: 'smooth' });
+  });
+
+  document.getElementById('clear-btn').addEventListener('click', () => {
+    document.getElementById('paste-input').value = '';
+  });
+
+  form.addEventListener('submit', e => {
+    e.preventDefault();
+    bookings.push({
+      type: form.type.value,
+      title: form.title.value.trim(),
+      date: form.date.value,
+      time: form.time.value,
+      ref: form.ref.value.trim().toUpperCase(),
+      note: form.note.value.trim(),
+      addedAt: new Date().toISOString(),
+    });
+    // 依日期時間排序，彙整成統一時間軸
+    bookings.sort((a, b) => (a.date + (a.time || '')).localeCompare(b.date + (b.time || '')));
+    T.saveBookings(bookings);
+    form.reset();
+    renderBookings();
+  });
+
+  /* ---- share link (#plan=...) ---- */
+  const hashMatch = location.hash.match(/#plan=(.+)/);
+  if (hashMatch) {
+    const shared = T.decodeShare(hashMatch[1]);
+    if (shared && Array.isArray(shared.days)) {
+      const banner = document.getElementById('share-banner');
+      const count = shared.days.reduce((s, d) => s + (d.activities?.length || 0), 0);
+      document.getElementById('share-summary').textContent =
+        `${shared.days.length} 天 · ${count} 個活動 · 合計 ¥${T.planTotal(shared.days).toLocaleString()}`;
+      banner.style.display = 'block';
+      document.getElementById('share-apply').addEventListener('click', () => {
+        T.savePlan(shared.days);
+        location.href = '/planner';
+      });
+      document.getElementById('share-dismiss').addEventListener('click', () => {
+        banner.style.display = 'none';
+        history.replaceState(null, '', location.pathname);
+      });
+    }
+  }
+
+  /* ---- backup / restore ---- */
+  document.getElementById('backup-btn').addEventListener('click', () => {
+    const backup = {
+      app: 'kumamoto-travel',
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      plan: JSON.parse(localStorage.getItem(T.PLAN_KEY) || 'null'),
+      bookings,
+      expenses: JSON.parse(localStorage.getItem('kumamoto-expenses') || 'null'),
+    };
+    T.download('kumamoto-backup.json', JSON.stringify(backup, null, 2), 'application/json;charset=utf-8');
+  });
+
+  document.getElementById('restore-input').addEventListener('change', async e => {
+    const file = e.target.files[0];
+    const msg = document.getElementById('restore-msg');
+    if (!file) return;
+    try {
+      const data = JSON.parse(await file.text());
+      const restored = [];
+      if (data.app === 'kumamoto-travel') {
+        if (data.plan?.days) { T.savePlan(data.plan.days); restored.push('自訂行程'); }
+        if (Array.isArray(data.bookings)) { bookings = data.bookings; T.saveBookings(bookings); restored.push(`訂單 ${bookings.length} 筆`); }
+        if (data.expenses) { localStorage.setItem('kumamoto-expenses', JSON.stringify(data.expenses)); restored.push('花費紀錄'); }
+      } else if (Array.isArray(data.days)) {
+        // planner 匯出的行程 JSON
+        T.savePlan(data.days);
+        restored.push('自訂行程');
+      }
+      if (restored.length) {
+        msg.style.color = 'var(--accent-green)';
+        msg.textContent = `✅ 已還原：${restored.join('、')}`;
+        renderBookings();
+      } else {
+        msg.style.color = '#ef4444';
+        msg.textContent = '❌ 無法辨識的檔案格式';
+      }
+    } catch {
+      msg.style.color = '#ef4444';
+      msg.textContent = '❌ 檔案讀取失敗，請確認是 JSON 格式';
+    }
+    e.target.value = '';
+  });
+
+  renderBookings();
+</script>

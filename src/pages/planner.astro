@@ -1,0 +1,316 @@
+---
+import Base from '../layouts/Base.astro';
+import { trip } from '../data/itinerary';
+const tripJson = JSON.stringify(trip);
+---
+
+<Base title="行程規劃工作台">
+  <header class="hero" style="padding:2rem 1rem;">
+    <h1>🧭 行程規劃工作台</h1>
+    <p class="subtitle">拖曳排序・編輯活動・即時預算，打造你的專屬版本</p>
+  </header>
+
+  <nav class="nav">
+    <a href="/">📋 總覽</a>
+    <a href="/day1">Day 1</a>
+    <a href="/day2">Day 2</a>
+    <a href="/day3">Day 3</a>
+    <a href="/day4">Day 4</a>
+    <a href="/planner" class="active">🧭 規劃</a>
+    <a href="/map">🗺️ 地圖</a>
+    <a href="/weather">🌤️ 天氣</a>
+    <a href="/tickets">🎫 預訂</a>
+    <a href="/expenses">💰 花費</a>
+    <a href="/calendar">📅 日曆</a>
+    <a href="/import">📥 匯入</a>
+    <a href="/planb">🆘 應變</a>
+  </nav>
+
+  <main class="container" style="padding-top:1.5rem;">
+    <div id="custom-banner" class="alert-banner" style="display:none;">
+      ✏️ 你正在檢視<strong>自訂版行程</strong>（儲存在此裝置）。Day 頁面顯示的仍是原始計畫。
+    </div>
+
+    <!-- Budget summary -->
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:0.5rem;">
+        <h2>💰 計畫總預算</h2>
+        <div><span id="plan-total" style="font-size:1.3rem;font-weight:700;color:var(--brand);"></span>
+        <span style="color:var(--text-muted);font-size:0.85rem;"> / ¥{trip.budget.toLocaleString()}</span></div>
+      </div>
+      <div class="budget-bar" style="height:0.65rem;background:var(--border);">
+        <div id="plan-total-bar" class="seg" style="background:var(--brand);border-radius:999px;transition:width 0.3s;"></div>
+      </div>
+      <div id="plan-total-note" style="font-size:0.8rem;color:var(--text-muted);"></div>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <button class="btn" id="tb-add">➕ 新增活動</button>
+      <button class="btn secondary" id="tb-json">📤 匯出 JSON</button>
+      <button class="btn secondary" id="tb-ics">📅 下載 .ics</button>
+      <button class="btn secondary" id="tb-share">🔗 複製分享連結</button>
+      <button class="btn danger" id="tb-reset">♻️ 重置為原始行程</button>
+    </div>
+
+    <div id="planner-root"></div>
+
+    <p style="font-size:0.75rem;color:var(--text-muted);margin:1rem 0;">
+      💡 拖曳 ☰ 可調整順序（跨天也可以）；手機請用 ↑↓ 按鈕。所有變更即時存在瀏覽器 localStorage，
+      用「匯出 JSON」備份、「分享連結」傳給旅伴（對方在 📥 匯入頁一鍵套用）。
+    </p>
+  </main>
+
+  <!-- Edit / Add modal -->
+  <dialog class="modal" id="act-modal">
+    <h3 id="modal-title" style="margin-bottom:1rem;">編輯活動</h3>
+    <form id="act-form" method="dialog">
+      <div style="display:grid;grid-template-columns:5rem 1fr;gap:0.5rem;">
+        <div class="form-row"><label>圖示</label><input name="icon" maxlength="4" placeholder="🍜" /></div>
+        <div class="form-row"><label>時間</label><input name="time" placeholder="13:30 或 午前" required /></div>
+      </div>
+      <div class="form-row"><label>活動名稱</label><input name="title" required maxlength="40" /></div>
+      <div class="form-row"><label>說明</label><textarea name="desc" rows="2" maxlength="120"></textarea></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;">
+        <div class="form-row"><label>預算 (¥)</label><input name="budget" type="number" min="0" step="100" value="0" /></div>
+        <div class="form-row"><label>類型</label>
+          <select name="type">
+            <option value="food">🍜 餐飲</option>
+            <option value="ticket">🎫 門票</option>
+            <option value="transport">🚃 交通</option>
+            <option value="hotel">🏨 住宿</option>
+            <option value="onsen">♨️ 溫泉</option>
+            <option value="shopping">🛍️ 購物</option>
+            <option value="free">🆓 免費</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row"><label>加到哪一天</label>
+        <select name="day">
+          {trip.days.map(d => <option value={d.day - 1}>Day {d.day} · {d.date}</option>)}
+        </select>
+      </div>
+      <div style="display:flex;gap:0.5rem;justify-content:flex-end;margin-top:1rem;">
+        <button type="button" class="btn secondary" id="modal-cancel">取消</button>
+        <button type="submit" class="btn">儲存</button>
+      </div>
+    </form>
+  </dialog>
+
+  <footer class="footer">
+    <a href="/" style="color:var(--brand);">← 回總覽</a>
+  </footer>
+</Base>
+
+<script is:inline src="/js/trip-tools.js"></script>
+<script define:vars={{ tripJson }}>
+  const T = window.TripTools;
+  const trip = JSON.parse(tripJson);
+  let days = T.loadPlan(trip.days);
+  let editing = null; // { dayIdx, actIdx } or null when adding
+
+  const root = document.getElementById('planner-root');
+  const modal = document.getElementById('act-modal');
+  const form = document.getElementById('act-form');
+
+  const typeLabels = { food: '餐飲', ticket: '門票', transport: '交通', hotel: '住宿', onsen: '溫泉', shopping: '購物', free: '免費' };
+
+  function persist() {
+    T.savePlan(days);
+    render();
+  }
+
+  function render() {
+    document.getElementById('custom-banner').style.display = T.hasCustomPlan() ? 'block' : 'none';
+
+    const total = T.planTotal(days);
+    document.getElementById('plan-total').textContent = '¥' + total.toLocaleString();
+    const pct = Math.min(100, Math.round(total / trip.budget * 100));
+    const bar = document.getElementById('plan-total-bar');
+    bar.style.width = pct + '%';
+    bar.style.background = total > trip.budget ? '#ef4444' : 'var(--brand)';
+    document.getElementById('plan-total-note').textContent = total > trip.budget
+      ? `⚠️ 超出預算 ¥${(total - trip.budget).toLocaleString()}`
+      : `尚有餘裕 ¥${(trip.budget - total).toLocaleString()}（${pct}% 已分配）`;
+
+    root.innerHTML = days.map((d, di) => `
+      <div class="card" data-day="${di}">
+        <div class="day-header">
+          <div class="day-num">${d.day}</div>
+          <div>
+            <div class="day-title">${T.esc(d.title)}</div>
+            <div class="day-subtitle">${T.esc(d.date)} · ${d.activities.length} 個活動 · ¥${T.dayTotal(d).toLocaleString()}</div>
+          </div>
+        </div>
+        <div class="plan-day-drop" data-day="${di}" data-pos="0"></div>
+        ${d.activities.map((a, ai) => `
+          <div class="plan-activity" draggable="true" data-day="${di}" data-act="${ai}">
+            <span class="drag-handle" title="拖曳排序">☰</span>
+            <span style="font-size:1.2rem;">${T.esc(a.icon || '📍')}</span>
+            <div class="act-body">
+              <div class="act-title">${T.esc(a.title)}${a.swapped ? '<span class="swapped-badge">替代方案</span>' : ''}</div>
+              <div class="act-meta">${T.esc(a.time)} · ${T.esc(a.desc || '')}</div>
+              <div class="act-meta"><span class="tag tag-${T.esc(a.type || 'free')}">${typeLabels[a.type] || a.type || '其他'}</span>
+                <strong style="color:${a.budget ? 'var(--brand)' : 'var(--accent-green)'};">${a.budget ? '¥' + Number(a.budget).toLocaleString() : '免費'}</strong></div>
+            </div>
+            <div class="act-actions">
+              <button class="icon-btn" data-op="up" title="上移">↑</button>
+              <button class="icon-btn" data-op="down" title="下移">↓</button>
+              <button class="icon-btn" data-op="edit" title="編輯">✏️</button>
+              <button class="icon-btn" data-op="del" title="刪除">🗑️</button>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `).join('');
+  }
+
+  /* ---- actions (event delegation) ---- */
+  root.addEventListener('click', e => {
+    const btn = e.target.closest('.icon-btn');
+    if (!btn) return;
+    const row = btn.closest('.plan-activity');
+    const di = +row.dataset.day, ai = +row.dataset.act;
+    const op = btn.dataset.op;
+    const acts = days[di].activities;
+
+    if (op === 'del') {
+      if (!confirm(`刪除「${acts[ai].title}」？`)) return;
+      acts.splice(ai, 1);
+      persist();
+    } else if (op === 'up' || op === 'down') {
+      const to = op === 'up' ? ai - 1 : ai + 1;
+      if (to < 0 && di > 0) {
+        days[di - 1].activities.push(acts.splice(ai, 1)[0]);
+      } else if (to >= acts.length && di < days.length - 1) {
+        days[di + 1].activities.unshift(acts.splice(ai, 1)[0]);
+      } else if (to >= 0 && to < acts.length) {
+        [acts[ai], acts[to]] = [acts[to], acts[ai]];
+      } else return;
+      persist();
+    } else if (op === 'edit') {
+      editing = { di, ai };
+      openModal('編輯活動', acts[ai], di);
+    }
+  });
+
+  /* ---- drag & drop ---- */
+  let dragSrc = null;
+  root.addEventListener('dragstart', e => {
+    const row = e.target.closest('.plan-activity');
+    if (!row) return;
+    dragSrc = { di: +row.dataset.day, ai: +row.dataset.act };
+    row.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+  });
+  root.addEventListener('dragend', () => {
+    dragSrc = null;
+    root.querySelectorAll('.dragging,.drop-above,.drop-below,.drop-active').forEach(el =>
+      el.classList.remove('dragging', 'drop-above', 'drop-below', 'drop-active'));
+  });
+  root.addEventListener('dragover', e => {
+    if (!dragSrc) return;
+    e.preventDefault();
+    root.querySelectorAll('.drop-above,.drop-below,.drop-active').forEach(el =>
+      el.classList.remove('drop-above', 'drop-below', 'drop-active'));
+    const row = e.target.closest('.plan-activity');
+    const zone = e.target.closest('.plan-day-drop');
+    if (row) {
+      const rect = row.getBoundingClientRect();
+      row.classList.add(e.clientY < rect.top + rect.height / 2 ? 'drop-above' : 'drop-below');
+    } else if (zone) {
+      zone.classList.add('drop-active');
+    }
+  });
+  root.addEventListener('drop', e => {
+    if (!dragSrc) return;
+    e.preventDefault();
+    const row = e.target.closest('.plan-activity');
+    const zone = e.target.closest('.plan-day-drop');
+    const moved = days[dragSrc.di].activities.splice(dragSrc.ai, 1)[0];
+    if (row) {
+      const di = +row.dataset.day;
+      let ai = +row.dataset.act;
+      const rect = row.getBoundingClientRect();
+      if (e.clientY >= rect.top + rect.height / 2) ai += 1;
+      if (di === dragSrc.di && ai > dragSrc.ai) ai -= 1;
+      days[di].activities.splice(ai, 0, moved);
+    } else if (zone) {
+      days[+zone.dataset.day].activities.unshift(moved);
+    } else {
+      days[dragSrc.di].activities.splice(dragSrc.ai, 0, moved); // put back
+    }
+    dragSrc = null;
+    persist();
+  });
+
+  /* ---- modal ---- */
+  function openModal(title, act, di) {
+    document.getElementById('modal-title').textContent = title;
+    form.icon.value = act?.icon || '';
+    form.time.value = act?.time || '';
+    form.title.value = act?.title || '';
+    form.desc.value = act?.desc || '';
+    form.budget.value = act?.budget ?? 0;
+    form.type.value = act?.type || 'food';
+    form.day.value = di ?? 0;
+    form.day.disabled = !!editing; // 編輯時用拖曳換天，避免混淆
+    modal.showModal();
+  }
+
+  document.getElementById('modal-cancel').addEventListener('click', () => modal.close());
+
+  form.addEventListener('submit', () => {
+    const act = {
+      time: form.time.value.trim(),
+      icon: form.icon.value.trim() || '📍',
+      title: form.title.value.trim(),
+      desc: form.desc.value.trim(),
+      budget: Math.max(0, Number(form.budget.value) || 0),
+      type: form.type.value,
+    };
+    if (editing) {
+      const old = days[editing.di].activities[editing.ai];
+      days[editing.di].activities[editing.ai] = { ...old, ...act };
+    } else {
+      days[+form.day.value].activities.push(act);
+    }
+    editing = null;
+    persist();
+  });
+
+  /* ---- toolbar ---- */
+  document.getElementById('tb-add').addEventListener('click', () => {
+    editing = null;
+    openModal('新增活動', null, 0);
+  });
+
+  document.getElementById('tb-json').addEventListener('click', () => {
+    T.download('kumamoto-plan.json',
+      JSON.stringify({ version: 1, title: trip.title, days }, null, 2),
+      'application/json;charset=utf-8');
+  });
+
+  document.getElementById('tb-ics').addEventListener('click', () => {
+    T.download('kumamoto-travel.ics', T.buildICS(trip, days), 'text/calendar;charset=utf-8');
+  });
+
+  document.getElementById('tb-share').addEventListener('click', async () => {
+    const url = `${location.origin}/import#plan=${T.encodeShare({ version: 1, days })}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      alert('已複製分享連結！傳給旅伴，開啟後可一鍵套用你的行程。');
+    } catch {
+      prompt('複製此連結分享行程：', url);
+    }
+  });
+
+  document.getElementById('tb-reset').addEventListener('click', () => {
+    if (!confirm('確定捨棄所有自訂變更，回到原始行程？')) return;
+    T.resetPlan();
+    days = T.loadPlan(trip.days);
+    render();
+  });
+
+  render();
+</script>

@@ -24,7 +24,7 @@ export const trip = {
         { time: '午前', icon: '🛫', title: '抵達熊本機場', desc: '機場巴士至熊本駅（50分・¥1,000/人）', budget: 2000, type: 'transport' },
         { time: '13:00', icon: '🏨', title: 'Check-in 飯店', desc: '熊本駅周辺ビジネスホテル（¥6,000/室・3晚）', budget: 6000, type: 'hotel' },
         { time: '13:30', icon: '🍜', title: '桂花ラーメン', desc: '熊本ラーメン元祖！マー油香る豚骨醤油', budget: 1500, type: 'food' },
-        { time: '15:00', icon: '🏯', title: '熊本城', desc: '日本三名城。天守閣展望台 ¥800/人', budget: 1600, type: 'ticket', wiki: 'Kumamoto Castle' },
+        { time: '15:00', icon: '🏯', title: '熊本城', desc: '日本三名城。天守閣展望台 ¥800/人', budget: 1600, type: 'ticket', wiki: 'Kumamoto Castle', outdoor: true, alt: { icon: '🎭', title: '城彩苑「湧々座」', desc: '室內歷史體驗館，VR 熊本城 ¥300/人', budget: 600, type: 'ticket' } },
         { time: '17:00', icon: '🏘️', title: '城彩苑 桜の馬場', desc: '江戶時代の城下町再現・いきなり団子試吃', budget: 500, type: 'food', wiki: 'Kumamoto Castle' },
         { time: '18:30', icon: '🌃', title: '上下通アーケード', desc: '熊本最大の商店街，逛街', budget: 0, type: 'free' },
         { time: '19:00', icon: '🥩', title: '菅乃屋（馬刺し）', desc: '馬刺し五種盛合せ ¥2,500〜¥4,000', budget: 3500, type: 'food' },
@@ -39,7 +39,7 @@ export const trip = {
       title: '文化・庭園・美食',
       subtitle: '水前寺靜謐，市區深度巡禮',
       activities: [
-        { time: '09:00', icon: '🌅', title: '水前寺成趣園', desc: '桃山式回遊庭園 ¥400/人', budget: 800, type: 'ticket', wiki: 'Suizenji Garden' },
+        { time: '09:00', icon: '🌅', title: '水前寺成趣園', desc: '桃山式回遊庭園 ¥400/人', budget: 800, type: 'ticket', wiki: 'Suizenji Garden', outdoor: true, alt: { icon: '🎨', title: '熊本市現代美術館', desc: '上通町・免費常設展・雨天首選', budget: 0, type: 'free' } },
         { time: '10:30', icon: '☕', title: '出水神社前喫茶', desc: '庭園景観を眺めながら休憩', budget: 500, type: 'food' },
         { time: '11:30', icon: '🐻', title: 'くまモンスクエア', desc: '部長辦公室！免費入場', budget: 0, type: 'free', wiki: 'Kumamon' },
         { time: '12:30', icon: '🥟', title: '紅蘭亭（太平燕）', desc: '熊本ソウルフード タイピーエン ¥900〜1,200', budget: 2000, type: 'food' },
@@ -58,7 +58,7 @@ export const trip = {
       subtitle: '熊本市電一日券で自由散策',
       activities: [
         { time: '09:00', icon: '🚃', title: '市電一日券啟動', desc: 'モバイル1日券 ¥500/人，一日無限搭乘', budget: 1000, type: 'transport' },
-        { time: '10:00', icon: '🐻', title: '熊本市動植物園', desc: '¥600/人，親子休閒好去處', budget: 1200, type: 'ticket', wiki: 'Kumamoto City Zoological and Botanical Gardens' },
+        { time: '10:00', icon: '🐻', title: '熊本市動植物園', desc: '¥600/人，親子休閒好去處', budget: 1200, type: 'ticket', wiki: 'Kumamoto City Zoological and Botanical Gardens', outdoor: true, alt: { icon: '🏛️', title: '熊本博物館', desc: '室內展示+天文館 ¥400/人', budget: 800, type: 'ticket' } },
         { time: '12:00', icon: '🍜', title: 'こむらさき', desc: '1954年創業・熊本ラーメンの原点 ¥850', budget: 1700, type: 'food' },
         { time: '14:00', icon: '🛍️', title: '蔦屋書店 / PARCO', desc: '熊本駅直結，コインロッカーあり', budget: 2000, type: 'shopping' },
         { time: '17:00', icon: '🍡', title: 'いきなり団子巡禮', desc: 'さつまいも+餡の蒸し団子 ¥100〜', budget: 1000, type: 'food' },
@@ -128,6 +128,76 @@ export const foods = [
   { name: 'からし蓮根', desc: '蓮根に辛子味噌を詰めて揚げた郷土料理', price: '¥500-1,000', shop: '郷彩根っこ', lat: 32.8030, lng: 130.7095 },
   { name: 'いきなり団子', desc: 'さつまいも+餡の蒸し菓子', price: '¥100-200', shop: '城彩苑・各土産店', lat: 32.8065, lng: 130.7045 },
 ];
+
+// 應變計畫：情境 + 替代方案 + 緊急資訊
+export const contingency = {
+  indoorSpots: [
+    { icon: '🎨', name: '熊本市現代美術館', desc: '上通町，常設展免費，週二休館', cost: '免費', area: '市中心' },
+    { icon: '🏬', name: 'SAKURA MACHI Kumamoto', desc: '大型商場+巴士總站+屋上庭園，美食街雨天方便', cost: '免費入場', area: '桜町' },
+    { icon: '🏛️', name: '熊本博物館', desc: '歷史展示+天文館', cost: '¥400', area: '熊本城旁' },
+    { icon: '🛍️', name: 'アミュプラザくまもと', desc: '熊本駅直結商場，蔦屋書店在此', cost: '免費入場', area: '熊本駅' },
+    { icon: '🎭', name: '城彩苑「湧々座」', desc: 'VR 熊本城歷史體驗', cost: '¥300', area: '熊本城' },
+    { icon: '♨️', name: '湯らっくす', desc: '溫泉+岩盤浴+餐廳，可待半天', cost: '¥800起', area: '平成' },
+  ],
+  scenarios: [
+    {
+      id: 'rain', icon: '☔', title: '午後雷陣雨',
+      desc: '7月熊本幾乎天天有午後雷陣雨的可能，14:00-17:00 最常見。',
+      tips: [
+        '戶外景點（熊本城、水前寺、動植物園）盡量排上午 09:00-12:00',
+        '下午安排室內：美術館、商場、溫泉',
+        '上下通・下通為有頂商店街（アーケード），雨天照常逛',
+        '市電班次密集（約5分一班），比走路淋雨好',
+      ],
+      swappable: true,
+    },
+    {
+      id: 'heat', icon: '🥵', title: '高溫中暑警戒',
+      desc: '7月熊本體感溫度常超過 35°C，12:00-15:00 為高危時段。',
+      tips: [
+        '12:00-15:00 避免戶外行走，改在餐廳/商場/美術館',
+        '每小時補水，便利商店買 OS-1 或ポカリスエット',
+        '熊本城天守閣有冷氣，但上坡路段曝曬——早上去',
+        '感到頭暈立即進便利商店或超商吹冷氣休息',
+      ],
+      swappable: true,
+    },
+    {
+      id: 'delay', icon: '🚄', title: '航班/交通延誤',
+      desc: 'Day 1 抵達延誤，或機場巴士錯過時的壓縮方案。',
+      tips: [
+        '機場巴士末班約 21:10（熊本駅方向），錯過改計程車約 ¥13,000',
+        '延誤 2 小時內：跳過桂花拉麵，直接 Check-in → 熊本城（閉園17:00前）',
+        '延誤 4 小時以上：保留晚餐馬刺し（菅乃屋 L.O. 21:00）+ 溫泉即可',
+        '熊本城改到 Day 3 上午（原自由日有彈性）',
+      ],
+      swappable: false,
+    },
+    {
+      id: 'fatigue', icon: '😴', title: '體力透支',
+      desc: '行程太滿走不動時的精簡版：每天只保留必去 2-3 個。',
+      tips: [
+        'Day 1 必去：熊本城 + 馬刺し晚餐',
+        'Day 2 必去：水前寺成趣園 + 太平燕午餐',
+        'Day 3 必去：あか牛晚餐（其餘自由）',
+        '善用市電一日券，能搭就不走；下午回飯店午睡1小時再出門',
+      ],
+      swappable: false,
+    },
+    {
+      id: 'sick', icon: '🤒', title: '身體不適/受傷',
+      desc: '就醫、買藥與求助管道。',
+      tips: [
+        '緊急：救護車/火警 119、警察 110',
+        '熊本市民病院、熊本大學病院可看急診（帶護照）',
+        '輕症先到藥妝店（ドラッグストア）：大賀藥局、コスモス，市區到處都有',
+        'JNTO 24小時外語旅客熱線：050-3816-2787（中文可）',
+        '記得保留收據，回國申請旅遊保險理賠',
+      ],
+      swappable: false,
+    },
+  ],
+};
 
 export const transport = [
   { mode: '空港→熊本駅', icon: '🚌', route: '機場巴士', time: '50分', cost: '¥1,000', note: '直達，最方便' },
